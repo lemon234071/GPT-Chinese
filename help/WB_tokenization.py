@@ -85,16 +85,17 @@ class WBTokenizer(object):
 
     def pad(self):
         """Helper to get index of pad symbol"""
-        return self.encoder["[PAD]"]
-        #return self.convert_tokens_to_ids("<pad>")
+        # return self.encoder["<pad>"]
+        return self.convert_tokens_to_ids("<pad>")
 
     def eos(self):
         """Helper to get index of end-of-sentence symbol"""
-        return self.encoder["[SEP]"]
+        return self.encoder["</s>"]
 
     def unk(self):
         """Helper to get index of unk symbol"""
-        return self.encoder["[UNK]"]
+        # return self.encoder["[UNK]"]
+        return self.encoder["<unk>"]
 
     def cls(self):
         return self.encoder["[CLS]"]

@@ -17,8 +17,8 @@ from pytorch_pretrained_bert import OpenAIGPTLMHeadModel, GPT2LMHeadModel
 from help.WB_tokenization import WBTokenizer, VOCAB_FILE
 from cotk.dataloader import GPTSingleTurnDialog
 
-SPECIAL_TOKENS = ["<bos>", "<eos>", "<speaker1>", "<speaker2>", "<pad>"]
 
+SPECIAL_TOKENS = ["[CLS]", "[SEP]", "[PAD]"]
 
 def top_filtering(logits, top_k=0, top_p=0.0, threshold=-float('Inf'), filter_value=-float('Inf')):
     """ Filter a distribution of logits using top-k, top-p (nucleus) and/or threshold filtering
@@ -58,13 +58,15 @@ def top_filtering(logits, top_k=0, top_p=0.0, threshold=-float('Inf'), filter_va
 
     return logits
 
+
 def build_input_from_segments(history, reply, tokenizer, lm_labels=False, with_eos=True):
     """ Build a sequence of input from 3 segments: persona, history and last reply """
     bos, eos, speaker1, speaker2 = tokenizer.convert_tokens_to_ids(SPECIAL_TOKENS[:-1])
 
     instance = {}
     sequence = [[bos]] + history + [reply + ([eos] if with_eos else [])]
-    sequence = [sequence[0]] + [[speaker2 if (len(sequence)-i) % 2 else speaker1] + s for i, s in enumerate(sequence[1:])]
+    sequence = [sequence[0]] + [[speaker2 if (len(sequence) - i) % 2 else speaker1] + s for i, s in
+                                enumerate(sequence[1:])]
 
     instance["input_ids"] = list(chain(*sequence))
     instance["token_type_ids"] = [speaker2 if i % 2 else speaker1 for i, s in enumerate(sequence) for _ in s]
@@ -74,28 +76,16 @@ def build_input_from_segments(history, reply, tokenizer, lm_labels=False, with_e
         instance["lm_labels"] = ([-1] * sum(len(s) for s in sequence[:-1])) + [-1] + sequence[-1][1:]
     return instance, sequence
 
-def sample_sequence(history, tokenizer, model, args, current_output=None):
+
+def sample_sequence(batch, tokenizer, model, args, current_output=None):
     special_tokens_ids = tokenizer.convert_tokens_to_ids(SPECIAL_TOKENS)
     if current_output is None:
         current_output = []
 
-    loss_total = 0.0
     for i in range(args.max_length):
-        instance, sequence = build_input_from_segments(history, current_output, tokenizer, with_eos=False)
-
-        input_ids = torch.tensor(instance["input_ids"], device=args.device).unsqueeze(0)
-        token_type_ids = torch.tensor(instance["token_type_ids"], device=args.device).unsqueeze(0)
-        lm_labels = torch.tensor(instance["lm_labels"], device=args.device).unsqueeze(0)
-
-        logits = model(input_ids, token_type_ids=token_type_ids)
-        # # Shift so that tokens < n predict n
-        # shift_logits = logits[..., :-1, :].contiguous()
-        # shift_labels = lm_labels[..., 1:].contiguous()
-        # # Flatten the tokens
-        # loss_fct = CrossEntropyLoss(ignore_index=-1)
-        # loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)),
-        #                 shift_labels.view(-1))
-        # loss_total += loss.item()
+        inputs = [batch["input_gpt"], batch["label_gpt"]]
+        input_ids, lm_labels = tuple(torch.LongTensor(x).to(args.device) for x in inputs)
+        logits = model(input_ids)
 
         if "gpt2" == args.model:
             logits = logits[0]
@@ -146,23 +136,29 @@ def get_cotk_data_loaders(args):
 
 def main():
     parser = ArgumentParser()
+    parser.add_argument("--dataset", type=str, default="GPTOpenSubtitles", help="Dataset.")
+    parser.add_argument("--datapath", type=str, default="./data/",
+                        help="Path of the dataset.")  # resources://OpenSubtitles
+    parser.add_argument("--vocab_path", type=str, default="./pretrain/Cgpt/vocab.txt", help="Path of the vocab.")
+    parser.add_argument("--min_vocab_times", type=int, default=0, help="")
+    parser.add_argument("--max_sent_length", type=int, default=256, help="")
+    parser.add_argument("--warmup_steps", type=int, default=5000, help="")
+    parser.add_argument("--valid_steps", type=int, default=125, help="")
     parser.add_argument("--out_path", type=str, default="", help="Path of response generated.")
-    parser.add_argument("--src_path", type=str, default="", help="Path of post.")
-    parser.add_argument("--tgt_path", type=str, default="", help="Path of golden response.")
-    parser.add_argument("--dataset_path", type=str, default="", help="Path or url of the dataset. If empty download from S3.")
-    parser.add_argument("--dataset_cache", type=str, default='./dataset_cache', help="Path or url of the dataset cache")
+
     parser.add_argument("--model", type=str, default="gpt", help="Model type (gpt or gpt2)")
     parser.add_argument("--model_checkpoint", type=str, default="", help="Path, url or short name of the model")
-    parser.add_argument("--max_history", type=int, default=25, help="Number of previous utterances to keep in history")
-    parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu", help="Device (cuda or cpu)")
+    parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu",
+                        help="Device (cuda or cpu)")
 
     parser.add_argument("--no_sample", action='store_true', help="Set to use greedy decoding instead of sampling")
-    parser.add_argument("--max_length", type=int, default=20, help="Maximum length of the output utterances")
+    parser.add_argument("--max_length", type=int, default=30, help="Maximum length of the output utterances")
     parser.add_argument("--min_length", type=int, default=1, help="Minimum length of the output utterances")
     parser.add_argument("--seed", type=int, default=42, help="Seed")
     parser.add_argument("--temperature", type=int, default=1, help="Sampling softmax temperature")
     parser.add_argument("--top_k", type=int, default=0, help="Filter top-k tokens before sampling (<=0: no filtering)")
-    parser.add_argument("--top_p", type=float, default=0.0, help="Nucleus filtering (top-p) before sampling (<=0.0: no filtering)")
+    parser.add_argument("--top_p", type=float, default=0.0,
+                        help="Nucleus filtering (top-p) before sampling (<=0.0: no filtering)")
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO)
@@ -186,13 +182,13 @@ def main():
     model.eval()
 
     test_loader = get_cotk_data_loaders(args)
+    tokenizer = test_loader.tokenizer
 
     out = []
     from tqdm import tqdm
     for batch in tqdm(test_loader, mininterval=2):
-
         with torch.no_grad():
-            out_ids = sample_sequence(history, tokenizer, model, args)
+            out_ids = sample_sequence(batch, tokenizer, model, args)
         out_text = tokenizer.decode(out_ids, skip_special_tokens=True)
         out.append(out_text)
 

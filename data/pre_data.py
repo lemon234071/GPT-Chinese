@@ -31,10 +31,24 @@ def pre_single(path, outpath):
 
 
 def test_Cgpt(path):
+    def char_split(line):
+        res = []
+        seq = line.replace(" ", "")
+        for word in seq:
+            res.append(word)
+        return " ".join(res)
+
     train_post = load_txt(path + "opensub_pair_train.post")
+    train_post = list(map(lambda x: char_split(x), train_post))
+
     train_resp = load_txt(path + "opensub_pair_train.response")
+    train_resp = list(map(lambda x: char_split(x), train_resp))
+
     valid_post = load_txt(path + "opensub_pair_dev.post")
+    valid_post = list(map(lambda x: char_split(x), valid_post))
+
     valid_resp = load_txt(path + "opensub_pair_dev.response")
+    valid_resp = list(map(lambda x: char_split(x), valid_resp))
 
     train = ["\t".join([x.strip(), y.strip()]) for x, y in zip(train_post, train_resp)]
     valid = ["\t".join([x.strip(), y.strip()]) for x, y in zip(valid_post, valid_resp)]

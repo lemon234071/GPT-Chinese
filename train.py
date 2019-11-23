@@ -114,8 +114,8 @@ def train():
     parser.add_argument("--model_checkpoint", type=str, default="./pretrain/Cgpt/",
                         help="Path, url or short name of the model")
     parser.add_argument("--max_history", type=int, default=25, help="Number of previous exchanges to keep in history")
-    parser.add_argument("--train_batch_size", type=int, default=4, help="Batch size for training")
-    parser.add_argument("--valid_batch_size", type=int, default=4, help="Batch size for validation")
+    parser.add_argument("--train_batch_size", type=int, default=8, help="Batch size for training")
+    parser.add_argument("--valid_batch_size", type=int, default=8, help="Batch size for validation")
     parser.add_argument("--gradient_accumulation_steps", type=int, default=8,
                         help="Accumulate gradients on several steps")
     parser.add_argument("--lr", type=float, default=6.25e-5, help="Learning rate")
@@ -147,20 +147,20 @@ def train():
         torch.distributed.init_process_group(backend='nccl', init_method='env://')
 
     logger.info("Prepare tokenizer, pretrained model and optimizer - add special tokens for fine-tuning")
-    tokenizer = WBTokenizer(os.path.join(args.model_checkpoint, VOCAB_FILE), split=True)
+    #tokenizer = WBTokenizer(os.path.join(args.model_checkpoint, VOCAB_FILE), split=True)
     if args.load_pretrain:
         model = OpenAIGPTLMHeadModel.from_pretrained(args.model_checkpoint)
     else:
         config = OpenAIGPTConfig.from_json_file(args.model_checkpoint + "config.json")
         model = OpenAIGPTLMHeadModel(config)
 
-    tokenizer.set_special_tokens(SPECIAL_TOKENS)
-    model.set_num_special_tokens(len(SPECIAL_TOKENS))
+    # tokenizer.set_special_tokens(SPECIAL_TOKENS)
+    # model.set_num_special_tokens(len(SPECIAL_TOKENS))
     model.to(args.device)
 
     logger.info("Prepare datasets")
-    train_loader, val_loader, train_sampler, valid_sampler = get_data_loaders(args, tokenizer)
-    #train_loader, val_loader, train_sampler, valid_sampler = get_cotk_data_loaders(args)
+    # train_loader, val_loader, train_sampler, valid_sampler = get_data_loaders(args, tokenizer)
+    train_loader, val_loader, train_sampler, valid_sampler = get_cotk_data_loaders(args)
 
     optimizer = OpenAIAdam(model.parameters(), lr=args.lr)
 
@@ -173,12 +173,12 @@ def train():
 
     # Training function and trainer
     def update(engine, batch):
-        # inputs = [batch["input_gpt"], batch["label_gpt"]]
-        # input_ids, lm_labels = tuple(torch.LongTensor(x).to(args.device) for x in inputs)
-        batch = tuple(input_tensor.to(args.device) for input_tensor in batch)
-        input_ids, lm_labels, token_type_ids = batch
+        inputs = [batch["input_gpt"], batch["label_gpt"]]
+        input_ids, lm_labels = tuple(torch.LongTensor(x).to(args.device) for x in inputs)
+        # batch = tuple(input_tensor.to(args.device) for input_tensor in batch)
+        # input_ids, lm_labels, token_type_ids = batch
         model.train()
-        lm_loss = model(input_ids, lm_labels=lm_labels, token_type_ids=token_type_ids)
+        lm_loss = model(input_ids, lm_labels=lm_labels)
         loss = lm_loss / args.gradient_accumulation_steps
         if args.fp16:
             with amp.scale_loss(loss, optimizer) as scaled_loss:
@@ -198,12 +198,12 @@ def train():
     def inference(engine, batch):
         model.eval()
         with torch.no_grad():
-            # inputs = [batch["input_gpt"], batch["label_gpt"]]
-            # input_ids, lm_labels = tuple(torch.LongTensor(x).to(args.device) for x in inputs)
-            batch = tuple(input_tensor.to(args.device) for input_tensor in batch)
-            input_ids, lm_labels, token_type_ids = batch
+            inputs = [batch["input_gpt"], batch["label_gpt"]]
+            input_ids, lm_labels = tuple(torch.LongTensor(x).to(args.device) for x in inputs)
+            # batch = tuple(input_tensor.to(args.device) for input_tensor in batch)
+            # input_ids, lm_labels, token_type_ids = batch
             # logger.info(tokenizer.decode(input_ids[0, -1, :].tolist()))
-            lm_logits = model(input_ids, token_type_ids=token_type_ids)
+            lm_logits = model(input_ids)
             lm_logits_flat_shifted = lm_logits[..., :-1, :].contiguous().view(-1, lm_logits.size(-1))
             lm_labels_flat_shifted = lm_labels[..., 1:].contiguous().view(-1)
             return lm_logits_flat_shifted, lm_labels_flat_shifted

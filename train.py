@@ -25,7 +25,6 @@ from cotk.dataloader import GPTSingleTurnDialog
 logger = logging.getLogger(__file__)
 
 
-# SPECIAL_TOKENS = ["<bos>", "<eos>", "<speaker1>", "<speaker2>", "<pad>"]
 SPECIAL_TOKENS = ["<bos>", "<eos>", "<speaker1>", "<speaker2>", "<pad>"]
 
 
@@ -161,7 +160,7 @@ def train():
 
     logger.info("Prepare datasets")
     train_loader, val_loader, train_sampler, valid_sampler = get_data_loaders(args, tokenizer)
-    train_loader, val_loader, train_sampler, valid_sampler = get_cotk_data_loaders(args)
+    #train_loader, val_loader, train_sampler, valid_sampler = get_cotk_data_loaders(args)
 
     optimizer = OpenAIAdam(model.parameters(), lr=args.lr)
 
@@ -179,7 +178,7 @@ def train():
         batch = tuple(input_tensor.to(args.device) for input_tensor in batch)
         input_ids, lm_labels, token_type_ids = batch
         model.train()
-        lm_loss = model(input_ids, lm_labels=lm_labels)
+        lm_loss = model(input_ids, lm_labels=lm_labels, token_type_ids=token_type_ids)
         loss = lm_loss / args.gradient_accumulation_steps
         if args.fp16:
             with amp.scale_loss(loss, optimizer) as scaled_loss:
@@ -204,7 +203,7 @@ def train():
             batch = tuple(input_tensor.to(args.device) for input_tensor in batch)
             input_ids, lm_labels, token_type_ids = batch
             # logger.info(tokenizer.decode(input_ids[0, -1, :].tolist()))
-            lm_logits = model(input_ids)
+            lm_logits = model(input_ids, token_type_ids=token_type_ids)
             lm_logits_flat_shifted = lm_logits[..., :-1, :].contiguous().view(-1, lm_logits.size(-1))
             lm_labels_flat_shifted = lm_labels[..., 1:].contiguous().view(-1)
             return lm_logits_flat_shifted, lm_labels_flat_shifted

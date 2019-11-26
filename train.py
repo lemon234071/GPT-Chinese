@@ -130,7 +130,7 @@ def train():
 
     logger.info("Prepare datasets")
     train_loader, val_loader, train_sampler, valid_sampler = get_cotk_data_loaders(args)
-    if "Cgpt" in args.model_checkpoint:
+    if args.vocab_path:
         tokenizer = train_loader.tokenizer
     else:
         tokenizer = tokenizer_class.from_pretrained(tokenizer_init)
@@ -147,7 +147,7 @@ def train():
         inputs = [batch["input_gpt"], batch["label_gpt"]]
         input_ids, lm_labels = tuple(torch.LongTensor(x).to(args.device) for x in inputs)
         model.train()
-        lm_loss = model(input_ids, lm_labels=lm_labels)
+        (lm_loss), *_ = model(input_ids, labels=lm_labels)
         loss = lm_loss / args.gradient_accumulation_steps
         if args.fp16:
             with amp.scale_loss(loss, optimizer) as scaled_loss:
@@ -159,7 +159,7 @@ def train():
         if engine.state.iteration % args.gradient_accumulation_steps == 0:
             optimizer.step()
             optimizer.zero_grad()
-        return loss.item(), optimizer.get_lr()[-1]
+        return loss.item(), optimizer.param_groups[0]['lr']
 
     trainer = Engine(update)
 

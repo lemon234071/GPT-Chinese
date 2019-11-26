@@ -2,6 +2,7 @@
 # All rights reserved. This source code is licensed under the BSD-style license found in the LICENSE file in the root directory of this source tree.
 import os
 import math
+
 import logging
 from pprint import pformat
 from argparse import ArgumentParser
@@ -14,13 +15,17 @@ from ignite.handlers import ModelCheckpoint
 from ignite.metrics import Loss, MetricsLambda, RunningAverage
 from ignite.contrib.handlers import ProgressBar, PiecewiseLinear
 from ignite.contrib.handlers.tensorboard_logger import TensorboardLogger, OutputHandler, OptimizerParamsHandler
-from pytorch_transformers import (OpenAIGPTDoubleHeadsModel, OpenAIGPTTokenizer, OpenAIGPTConfig,
-                                  GPT2DoubleHeadsModel, GPT2Tokenizer, GPT2Config,
-                                  WEIGHTS_NAME, CONFIG_NAME, AdamW)
+from pytorch_pretrained_bert import (OpenAIAdam, OpenAIGPTConfig, OpenAIGPTLMHeadModel, WEIGHTS_NAME, CONFIG_NAME)
 
+from help.WB_tokenization import WBTokenizer, VOCAB_FILE
+from help.dataset_weibolm_txt import WBDataset, WBCollate
 from cotk.dataloader import GPTSingleTurnDialog
 
+
 logger = logging.getLogger(__file__)
+
+
+SPECIAL_TOKENS = ["<bos>", "<eos>", "<speaker1>", "<speaker2>", "<pad>"]
 
 
 def average_distributed_scalar(scalar, args):
@@ -30,6 +35,31 @@ def average_distributed_scalar(scalar, args):
     scalar_t = torch.tensor(scalar, dtype=torch.float, device=args.device) / torch.distributed.get_world_size()
     torch.distributed.all_reduce(scalar_t, op=torch.distributed.ReduceOp.SUM)
     return scalar_t.item()
+
+
+def get_data_loaders(args, tokenizer):
+    """ Prepare the dataset for training and evaluation """
+    logger.info("Build train and validation dataloaders")
+    train_dataset = WBDataset(args, tokenizer, data_path=args.train_path)
+    valid_dataset = WBDataset(args, tokenizer, data_path=args.valid_path)
+    train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset) if args.distributed else None
+    valid_sampler = torch.utils.data.distributed.DistributedSampler(valid_dataset) if args.distributed else None
+    train_loader = DataLoader(train_dataset,
+                              collate_fn=WBCollate(train_dataset),
+                              pin_memory=(args.device == "cuda"),
+                              num_workers=args.num_workers,
+                              sampler=train_sampler,
+                              batch_size=args.train_batch_size,
+                              # shuffle=(not args.distributed))
+                              shuffle=False)
+    valid_loader = DataLoader(valid_dataset,
+                              collate_fn=WBCollate(valid_dataset),
+                              pin_memory=(args.device == "cuda"),
+                              num_workers=args.num_workers,
+                              sampler=valid_sampler,
+                              batch_size=args.valid_batch_size,
+                              shuffle=False)
+    return train_loader, valid_loader, train_sampler, valid_sampler
 
 
 def get_cotk_data_loaders(args):
@@ -46,7 +76,8 @@ def get_cotk_data_loaders(args):
         def __init__(self, data, datakey, batch_size):
             self.data = data
             self.datakey = datakey
-            self.shuffle = True if datakey == "train" else False
+            self.shuffle = False
+            # self.shuffle = True if datakey == "train" else False
             self.batch_size = batch_size
             self.tokenizer = data.tokenizer
 
@@ -70,23 +101,26 @@ def get_cotk_data_loaders(args):
 def train():
     parser = ArgumentParser()
     parser.add_argument("--dataset", type=str, default="GPTOpenSubtitles", help="Dataset.")
-    parser.add_argument("--datapath", type=str, default="./data/",
-                        help="Path of the dataset.")  # resources://OpenSubtitles
-    parser.add_argument("--vocab_path", type=str, default="", help="Path of the vocab.")
+    parser.add_argument("--datapath", type=str, default="./data/", help="Path of the dataset.")# resources://OpenSubtitles
+    parser.add_argument("--vocab_path", type=str, default="./pretrain/Cgpt/vocab.txt", help="Path of the vocab.")
     parser.add_argument("--min_vocab_times", type=int, default=0, help="")
     parser.add_argument("--max_sent_length", type=int, default=512, help="")
+    parser.add_argument("--warmup_steps", type=int, default=5000, help="")
     parser.add_argument("--valid_steps", type=int, default=125, help="")
-    parser.add_argument('--load_pretrain', action='store_true', help='Load pretrian model')
 
-    parser.add_argument("--model_checkpoint", type=str, default="openai-gpt", #"./pretrain/Cgpt/",
+
+    parser.add_argument("--train_path", type=str, default="./data/train.txt", help="Path of the dataset.")
+    parser.add_argument("--valid_path", type=str, default="./data/valid.txt", help="Path of the dataset.")
+    parser.add_argument("--model_checkpoint", type=str, default="./pretrain/Cgpt/",
                         help="Path, url or short name of the model")
+    parser.add_argument("--max_history", type=int, default=25, help="Number of previous exchanges to keep in history")
     parser.add_argument("--train_batch_size", type=int, default=8, help="Batch size for training")
     parser.add_argument("--valid_batch_size", type=int, default=8, help="Batch size for validation")
     parser.add_argument("--gradient_accumulation_steps", type=int, default=8,
                         help="Accumulate gradients on several steps")
     parser.add_argument("--lr", type=float, default=6.25e-5, help="Learning rate")
     parser.add_argument("--max_norm", type=float, default=1.0, help="Clipping gradient norm")
-    parser.add_argument("--n_epochs", type=int, default=3, help="Number of training epochs")
+    parser.add_argument("--n_epochs", type=int, default=2, help="Number of training epochs")
     parser.add_argument("--eval_before_start", action='store_true',
                         help="If true start with a first evaluation before training")
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu",
@@ -95,6 +129,8 @@ def train():
                         help="Set to O0, O1, O2 or O3 for fp16 training (see apex documentation)")
     parser.add_argument("--local_rank", type=int, default=-1,
                         help="Local rank for distributed training (-1: not distributed)")
+    parser.add_argument("--num_workers", type=int, default=8, help="How many subprocesses to use for data loading")
+    parser.add_argument('--load_pretrain', action='store_true', help='Load pretrian model')
     args = parser.parse_args()
 
     # logging is set to INFO (resp. WARN) for main (resp. auxiliary) process. logger.info => log main process only, logger.warning => log all processes
@@ -111,29 +147,22 @@ def train():
         torch.distributed.init_process_group(backend='nccl', init_method='env://')
 
     logger.info("Prepare tokenizer, pretrained model and optimizer - add special tokens for fine-tuning")
-    model_class = GPT2DoubleHeadsModel if "gpt2" in args.model_checkpoint else OpenAIGPTDoubleHeadsModel
-    model_config = GPT2Config if "gpt2" in args.model_checkpoint else OpenAIGPTConfig
-    tokenizer_class = GPT2Tokenizer if "gpt2" in args.model_checkpoint else OpenAIGPTTokenizer
-
+    tokenizer = WBTokenizer(os.path.join(args.model_checkpoint, VOCAB_FILE), split=True)
     if args.load_pretrain:
-        model = model_class.from_pretrained(args.model_checkpoint)
-        tokenizer_init = args.model_checkpoint
+        model = OpenAIGPTLMHeadModel.from_pretrained(args.model_checkpoint)
     else:
-        assert args.vocab_path
-        config = model_config.from_json_file(args.model_checkpoint + "config.json")
-        model = model_class(config)
-        tokenizer_init = args.vocab_path
+        config = OpenAIGPTConfig.from_json_file(args.model_checkpoint + "config.json")
+        model = OpenAIGPTLMHeadModel(config)
 
+    tokenizer.set_special_tokens(SPECIAL_TOKENS)
+    model.set_num_special_tokens(len(SPECIAL_TOKENS))
     model.to(args.device)
 
-    optimizer = AdamW(model.parameters(), lr=args.lr, correct_bias=True)
-
     logger.info("Prepare datasets")
-    train_loader, val_loader, train_sampler, valid_sampler = get_cotk_data_loaders(args)
-    if "Cgpt" in args.model_checkpoint:
-        tokenizer = train_loader.tokenizer
-    else:
-        tokenizer = tokenizer_class.from_pretrained(tokenizer_init)
+    train_loader, val_loader, train_sampler, valid_sampler = get_data_loaders(args, tokenizer)
+    #train_loader, val_loader, train_sampler, valid_sampler = get_cotk_data_loaders(args)
+
+    optimizer = OpenAIAdam(model.parameters(), lr=args.lr)
 
     # Prepare model for FP16 and distributed training if needed (order is important, distributed should be the last)
     if args.fp16:
@@ -144,8 +173,10 @@ def train():
 
     # Training function and trainer
     def update(engine, batch):
-        inputs = [batch["input_gpt"], batch["label_gpt"]]
-        input_ids, lm_labels = tuple(torch.LongTensor(x).to(args.device) for x in inputs)
+        # inputs = [batch["input_gpt"], batch["label_gpt"]]
+        # input_ids, lm_labels = tuple(torch.LongTensor(x).to(args.device) for x in inputs)
+        batch = tuple(input_tensor.to(args.device) for input_tensor in batch)
+        input_ids, lm_labels, token_type_ids = batch
         model.train()
         lm_loss = model(input_ids, lm_labels=lm_labels)
         loss = lm_loss / args.gradient_accumulation_steps
@@ -167,8 +198,10 @@ def train():
     def inference(engine, batch):
         model.eval()
         with torch.no_grad():
-            inputs = [batch["input_gpt"], batch["label_gpt"]]
-            input_ids, lm_labels = tuple(torch.LongTensor(x).to(args.device) for x in inputs)
+            # inputs = [batch["input_gpt"], batch["label_gpt"]]
+            # input_ids, lm_labels = tuple(torch.LongTensor(x).to(args.device) for x in inputs)
+            batch = tuple(input_tensor.to(args.device) for input_tensor in batch)
+            input_ids, lm_labels, token_type_ids = batch
             # logger.info(tokenizer.decode(input_ids[0, -1, :].tolist()))
             lm_logits = model(input_ids)
             lm_logits_flat_shifted = lm_logits[..., :-1, :].contiguous().view(-1, lm_logits.size(-1))
@@ -184,11 +217,11 @@ def train():
     if args.eval_before_start:
         trainer.add_event_handler(Events.STARTED, lambda _: evaluator.run(val_loader))
 
-    # Evaluation during training
+    # Evaluation every during training
     @trainer.on(Events.ITERATION_COMPLETED)
     def log_iterations(engine):
-        if engine.state.iteration % int(0.2 * len(train_loader)) == 0:
-            # if engine.state.iteration % args.valid_steps == 0:
+        if engine.state.iteration % int(0.1 * len(train_loader)) == 0:
+        # if engine.state.iteration % args.valid_steps == 0:
             evaluator.run(val_loader)
 
     # Make sure distributed data samplers split the dataset nicely between the distributed processes
@@ -198,6 +231,7 @@ def train():
 
     # Linearly decrease the learning rate from lr to zero
     scheduler = PiecewiseLinear(optimizer, "lr", [(0, args.lr), (args.n_epochs * len(train_loader), 0.0)])
+    # scheduler = PiecewiseLinear(optimizer, "lr", [(0, args.lr), (args.n_epochs * args.warmup_steps, 0.0)])
     trainer.add_event_handler(Events.ITERATION_STARTED, scheduler)
 
     # Prepare metrics - note how we compute distributed metrics
@@ -230,7 +264,7 @@ def train():
 
         torch.save(args, tb_logger.writer.logdir + '/model_training_args.bin')
         getattr(model, 'module', model).config.to_json_file(os.path.join(tb_logger.writer.logdir, CONFIG_NAME))
-        tokenizer.save_vocabulary(tb_logger.writer.logdir)
+        #tokenizer.save_vocabulary(tb_logger.writer.logdir)
 
     # Run the training
     trainer.run(train_loader, max_epochs=args.n_epochs)

@@ -35,7 +35,10 @@ def test_Cgpt(path):
         res = []
         seq = line.replace(" ", "")
         for word in seq:
-            res.append(word)
+            if word:
+                res.append(word)
+        res = " ".join(res).split()
+        assert len(res) > 0
         return " ".join(res)
 
     train_post = load_txt(path + "opensub_pair_train.post")
@@ -52,8 +55,8 @@ def test_Cgpt(path):
 
     train = ["\t".join([x.strip(), y.strip()]) for x, y in zip(train_post, train_resp)]
     valid = ["\t".join([x.strip(), y.strip()]) for x, y in zip(valid_post, valid_resp)]
-    save_txt("\n".join(train), "./train.txt")
-    save_txt("\n".join(valid), "./valid.txt")
+    save_txt("\n".join(train), "./train1.txt")
+    save_txt("\n".join(valid), "./valid1.txt")
 
 
 def main():

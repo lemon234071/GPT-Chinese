@@ -170,7 +170,7 @@ def train():
             inputs = [batch["input_gpt"], batch["label_gpt"]]
             input_ids, lm_labels = tuple(torch.LongTensor(x).to(args.device) for x in inputs)
             # logger.info(tokenizer.decode(input_ids[0, -1, :].tolist()))
-            lm_logits = model(input_ids)
+            lm_logits, *_ = model(input_ids)
             lm_logits_flat_shifted = lm_logits[..., :-1, :].contiguous().view(-1, lm_logits.size(-1))
             lm_labels_flat_shifted = lm_labels[..., 1:].contiguous().view(-1)
             return lm_logits_flat_shifted, lm_labels_flat_shifted

@@ -18,7 +18,7 @@ from pytorch_transformers import (OpenAIGPTLMHeadModel, OpenAIGPTTokenizer, Open
                                   GPT2LMHeadModel, GPT2Tokenizer, GPT2Config,
                                   WEIGHTS_NAME, CONFIG_NAME, AdamW)
 
-from cotk.dataloader import GPTSingleTurnDialog
+from cotk.dataloader import BERTSingleTurnDialog
 
 logger = logging.getLogger(__file__)
 
@@ -33,7 +33,7 @@ def average_distributed_scalar(scalar, args):
 
 
 def get_cotk_data_loaders(args):
-    data_class = GPTSingleTurnDialog.load_class(args.dataset)
+    data_class = BERTSingleTurnDialog.load_class(args.dataset)
     data = data_class(args.datapath,
                       bert_vocab_name=args.vocab_path,
                       min_vocab_times=args.min_vocab_times,
@@ -69,7 +69,7 @@ def get_cotk_data_loaders(args):
 
 def train():
     parser = ArgumentParser()
-    parser.add_argument("--dataset", type=str, default="GPTOpenSubtitles", help="Dataset.")
+    parser.add_argument("--dataset", type=str, default="BERTOpenSubtitles", help="Dataset.")
     parser.add_argument("--datapath", type=str, default="./data/",
                         help="Path of the dataset.")  # resources://OpenSubtitles
     parser.add_argument("--vocab_path", type=str, default="", help="Path of the vocab.")
@@ -144,7 +144,7 @@ def train():
 
     # Training function and trainer
     def update(engine, batch):
-        inputs = [batch["input_gpt"], batch["label_gpt"]]
+        inputs = [batch["input_HGF"], batch["label_HGF"]]
         input_ids, lm_labels = tuple(torch.LongTensor(x).to(args.device) for x in inputs)
         model.train()
         (lm_loss), *_ = model(input_ids, labels=lm_labels)

@@ -1,12 +1,13 @@
 from od.utils.data_utils import *
-from random import random
+import random
+from tqdm import tqdm
 
 random.seed(2020)
 
 
 def pro_CWB(indir, outdir):
-    single_data = load_json(indir + "single_final_v1")
-    multi_data = load_json(indir + "multi_final_v1")
+    single_data = load_json(indir + "single_final_v1.json")
+    multi_data = load_json(indir + "multi_final_v1.json")
     new_single = []
     new_multi = []
     for dialog in single_data:
@@ -54,7 +55,7 @@ def pro_CWB(indir, outdir):
     new_multi = new_multi[:-20000]
 
     train = []
-    for dialog in new_multi+new_single:
+    for dialog in tqdm(new_multi+new_single):
         post = " [POST] ".join(dialog[:-1])
         resp = dialog[-1]
         train.append(post + " [RESP] " + resp)

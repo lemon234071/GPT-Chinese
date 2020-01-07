@@ -67,7 +67,7 @@ class WBDataset(Dataset):
         line = self._get_line(index)
         hist_candi = line.strip().split("[RESP]")
         history = hist_candi[0].split("[POST]")
-        candidates = hist_candi[1]
+        candidates = hist_candi[1].split("[RESP]")
         return self.process({"history": history, "candidates": candidates})
 
     def process(self, utterance1):

@@ -66,7 +66,7 @@ def train():
     parser.add_argument("--num_workers", type=int, default=8, help="How many subprocesses to use for data loading")
     parser.add_argument("--warmup_steps", type=int, default=16000, help="")
     parser.add_argument("--valid_steps", type=int, default=2500, help="")
-    parser.add_argument("--train_path", type=str, default="./data/toy_train.txt", help="Path of the dataset.")
+    parser.add_argument("--train_path", type=str, default="./data/bug_train.txt", help="Path of the dataset.")
     parser.add_argument("--valid_path", type=str, default="./data/toy_valid.txt", help="Path of the dataset.")
 
     parser.add_argument("--model_checkpoint", type=str, default="./pretrain/Cgpt/",

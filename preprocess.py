@@ -56,22 +56,31 @@ def pro_CWB(indir, outdir):
 
     train = []
     for dialog in tqdm(new_multi+new_single):
-        try:
-            post = " [POST] ".join(dialog[:-1])
-            resp = dialog[-1]
-            train.append(post + " [RESP] " + resp)
-        except:
-            import pdb
-            pdb.set_trace()
+        post = " [POST] ".join(dialog[:-1])
+        resp = dialog[-1]
+        train.append(post + " [RESP] " + resp)
+
+    valid_txt = []
+    for dialog in tqdm(valid):
+        post = " [POST] ".join(dialog[:-1])
+        resp = dialog[-1]
+        valid_txt.append(post + " [RESP] " + resp)
+
+    test_txt = []
+    for dialog in tqdm(test):
+        post = " [POST] ".join(dialog[:-1])
+        resp = dialog[-1]
+        test_txt.append(post + " [RESP] " + resp)
+
     print(len(train))
     print(len(valid))
     print(len(test))
     random.shuffle(train)
-    random.shufle(valid)
+    random.shuffle(valid)
     random.shuffle(test)
-    save_txt(train, outdir+"train.txt")
-    save_txt(train, outdir + "valid.txt")
-    save_txt(train, outdir + "test.txt")
+    save_txt("\n".join(train), outdir+"train.txt")
+    save_txt("\n".join(valid_txt), outdir + "valid.txt")
+    save_txt("\n".join(test_txt), outdir + "test.txt")
     print("pro_CWB over")
 
 

@@ -10,8 +10,7 @@ def pro_CWB(indir, outdir):
     multi_data = load_json(indir + "multi_final_v1.json")
     new_single = []
     new_multi = []
-    print(len(single_data))
-    print("multi", len(multi_data))
+    print(len(single_data)+len(multi_data))
     for dialog in single_data:
         new_dialog = []
         for seq in dialog:
@@ -33,6 +32,7 @@ def pro_CWB(indir, outdir):
         new_multi.append(new_dialog)
 
     del single_data, multi_data
+    print(len(single_data)+len(multi_data))
 
     split_muli = []
     for dialog in new_multi:
@@ -46,10 +46,10 @@ def pro_CWB(indir, outdir):
 
     valid = []
     test = []
-    valid.append(new_single[-10000:-3000])
-    test.append(new_single[-3000:])
-    valid.append(new_multi[-20000:-7000])
-    test.append(new_multi[-7000:])
+    valid.extend(new_single[-10000:-3000])
+    test.extend(new_single[-3000:])
+    valid.extend(new_multi[-20000:-7000])
+    test.extend(new_multi[-7000:])
 
     new_single = new_single[:-10000]
     new_multi = new_multi[:-20000]
@@ -66,9 +66,9 @@ def pro_CWB(indir, outdir):
     print(len(train))
     print(len(valid))
     print(len(test))
-    random.shuffule(train)
-    random.shuffule(valid)
-    random.shuffule(test)
+    random.shuffle(train)
+    random.shufle(valid)
+    random.shuffle(test)
     save_txt(train, outdir+"train.txt")
     save_txt(train, outdir + "valid.txt")
     save_txt(train, outdir + "test.txt")

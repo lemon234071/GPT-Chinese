@@ -17,8 +17,9 @@ def pro_CWB(indir, outdir):
         for seq in dialog:
             new_seq = []
             for token in seq:
-                if token:
+                if token.strip():
                     new_seq.append(token)
+            assert len(new_seq) > 0
             new_dialog.append(" ".join(new_seq))
         new_single.append(new_dialog)
 
@@ -27,8 +28,9 @@ def pro_CWB(indir, outdir):
         for seq in dialog:
             new_seq = []
             for token in seq:
-                if token:
+                if token.strip():
                     new_seq.append(token)
+            assert len(new_seq) > 0
             new_dialog.append(" ".join(new_seq))
         new_multi.append(new_dialog)
 

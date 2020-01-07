@@ -10,6 +10,8 @@ def pro_CWB(indir, outdir):
     multi_data = load_json(indir + "multi_final_v1.json")
     new_single = []
     new_multi = []
+    print(len(single_data))
+    print("multi", len(multi_data))
     for dialog in single_data:
         new_dialog = []
         for seq in dialog:
@@ -34,10 +36,8 @@ def pro_CWB(indir, outdir):
 
     split_muli = []
     for dialog in new_multi:
-        new_dialog = []
         for i in range(2, len(dialog)+1):
-            new_dialog.append(dialog[:i])
-        split_muli.append(new_dialog)
+            split_muli.append(dialog[:i])
 
     new_multi = split_muli
     random.shuffle(new_multi)
@@ -56,10 +56,13 @@ def pro_CWB(indir, outdir):
 
     train = []
     for dialog in tqdm(new_multi+new_single):
-        post = " [POST] ".join(dialog[:-1])
-        resp = dialog[-1]
-        train.append(post + " [RESP] " + resp)
-
+        try:
+            post = " [POST] ".join(dialog[:-1])
+            resp = dialog[-1]
+            train.append(post + " [RESP] " + resp)
+        except:
+            import pdb
+            pdb.set_trace()
     print(len(train))
     print(len(valid))
     print(len(test))

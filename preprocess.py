@@ -32,10 +32,10 @@ def pro_CWB(indir, outdir):
         new_multi.append(new_single)
 
     del single_data, multi_data
-    print(len(new_multi)+len(multi_data))
+    print(len(new_multi)+len(new_single))
 
     split_muli = []
-    for dialog in new_multi:
+    for dialog in tqdm(new_multi):
         for i in range(2, len(dialog)+1):
             split_muli.append(dialog[:i])
 

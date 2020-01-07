@@ -29,10 +29,10 @@ def pro_CWB(indir, outdir):
                 if token:
                     new_seq.append(token)
             new_dialog.append(" ".join(new_seq))
-        new_multi.append(new_dialog)
+        new_multi.append(new_single)
 
     del single_data, multi_data
-    print(len(single_data)+len(multi_data))
+    print(len(new_multi)+len(multi_data))
 
     split_muli = []
     for dialog in new_multi:

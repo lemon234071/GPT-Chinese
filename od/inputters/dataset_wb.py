@@ -65,12 +65,9 @@ class WBDataset(Dataset):
 
     def __getitem__(self, index):
         line = self._get_line(index)
-        try:
-            hist_candi = line.strip().split("\t")
-            history = hist_candi[0].split("[POST]")
-            candidates = hist_candi[1].split("[RESP]")
-        except:
-            print(1)
+        hist_candi = line.strip().split("[RESP]")
+        history = hist_candi[0].split("[POST]")
+        candidates = hist_candi[1]
         return self.process({"history": history, "candidates": candidates})
 
     def process(self, utterance1):

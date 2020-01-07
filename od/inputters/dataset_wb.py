@@ -65,7 +65,7 @@ class WBDataset(Dataset):
 
     def __getitem__(self, index):
         line = self._get_line(index)
-        hist_candi = line.strip().split("[RESP]")
+        hist_candi = line.strip().split("[SEP]")
         history = hist_candi[0].split("[POST]")
         candidates = hist_candi[1].split("[RESP]")
         return self.process({"history": history, "candidates": candidates})

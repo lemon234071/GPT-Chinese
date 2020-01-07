@@ -11,6 +11,7 @@ def pro_CWB(indir, outdir):
     multi_data = load_json(indir + "multi_final_v1.json")
     new_single = []
     new_multi = []
+    n_drop = 0
     print(len(single_data)+len(multi_data))
     for dialog in single_data:
         new_dialog = []
@@ -20,7 +21,11 @@ def pro_CWB(indir, outdir):
                 if token.strip():
                     new_seq.append(token)
             assert len(new_seq) > 0
-            new_dialog.append(" ".join(new_seq))
+            new_dialog.append(new_seq)
+        if sum([len(x) for x in new_dialog]) + 2 + len(new_dialog) > 512:
+            n_drop += 1
+            print(new_dialog)
+            continue
         new_single.append(new_dialog)
 
     for dialog in multi_data:
@@ -31,7 +36,7 @@ def pro_CWB(indir, outdir):
                 if token.strip():
                     new_seq.append(token)
             assert len(new_seq) > 0
-            new_dialog.append(" ".join(new_seq))
+            new_dialog.append(new_seq)
         new_multi.append(new_dialog)
 
     del single_data, multi_data
@@ -41,8 +46,16 @@ def pro_CWB(indir, outdir):
     split_muli = []
     for dialog in tqdm(new_multi):
         for i in range(2, len(dialog)+1):
-            split_muli.append(dialog[:i])
+            new_dialog = dialog[:i]
+            if sum([len(x) for x in new_dialog[-2:]]) + 2 + 2 > 512:
+                n_drop += 1
+                print(new_dialog[-2:])
+                continue
+            while sum([len(x) for x in new_dialog]) + 2 + len(new_dialog) > 512:
+                new_dialog = new_dialog[1:]
+            split_muli.append(new_dialog)
 
+    print("drop", n_drop)
     new_multi = split_muli
     random.shuffle(new_multi)
     random.shuffle(new_single)
@@ -60,21 +73,21 @@ def pro_CWB(indir, outdir):
 
     train = []
     for dialog in tqdm(new_multi+new_single):
-        post = " [POST] ".join(dialog[:-1])
+        post = " [POST] ".join([" ".join(x) for x in dialog[:-1]])
         resp = dialog[-1]
-        train.append(post + " [RESP] " + resp)
+        train.append(post + " [SEP] " + " ".join(resp))
 
     valid_txt = []
     for dialog in tqdm(valid):
-        post = " [POST] ".join(dialog[:-1])
+        post = " [POST] ".join([" ".join(x) for x in dialog[:-1]])
         resp = dialog[-1]
-        valid_txt.append(post + " [RESP] " + resp)
+        valid_txt.append(post + " [SEP] " + " ".join(resp))
 
     test_txt = []
     for dialog in tqdm(test):
-        post = " [POST] ".join(dialog[:-1])
+        post = " [POST] ".join([" ".join(x) for x in dialog[:-1]])
         resp = dialog[-1]
-        test_txt.append(post + " [RESP] " + resp)
+        test_txt.append(post + " [SEP] " + " ".join(resp))
 
     print(len(train))
     print(len(valid))

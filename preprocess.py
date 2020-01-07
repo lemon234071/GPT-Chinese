@@ -1,6 +1,7 @@
 from od.utils.data_utils import *
 import random
 from tqdm import tqdm
+import gc
 
 random.seed(2020)
 
@@ -29,9 +30,10 @@ def pro_CWB(indir, outdir):
                 if token:
                     new_seq.append(token)
             new_dialog.append(" ".join(new_seq))
-        new_multi.append(new_single)
+        new_multi.append(new_dialog)
 
     del single_data, multi_data
+    gc.collect()
     print(len(new_multi)+len(new_single))
 
     split_muli = []

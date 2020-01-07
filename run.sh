@@ -1,1 +1,1 @@
-CUDA_VISIBLE_DEVICES=1,2 python3 -m torch.distributed.launch --nproc_per_node=2 train.py --n_epochs 3 --load_pretrain --model_checkpoint ./pretrain/multi_p_7/ --vocab_path ./pretrain/multi_p_7/vocab.txt
+CUDA_VISIBLE_DEVICES=0,1,2,3 python3 -m torch.distributed.launch --nproc_per_node=4 train.py --n_epochs 70 --load_pretrain --model_checkpoint ./pretrain/Cgpt/ --train_path ./data/CWB_train.txt --valid_path ./data/CWB_valid.txt

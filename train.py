@@ -165,8 +165,8 @@ def train():
     # Evaluation during training
     @trainer.on(Events.ITERATION_COMPLETED)
     def log_iterations(engine):
-        # if engine.state.iteration % int(0.1 * len(train_loader)) == 0:
-        if engine.state.iteration % args.valid_steps == 0:
+        if engine.state.iteration % int(0.1 * len(train_loader)) == 0:
+        # if engine.state.iteration % args.valid_steps == 0:
             evaluator.run(val_loader)
 
     # Make sure distributed data samplers split the dataset nicely between the distributed processes

@@ -9,19 +9,16 @@ from argparse import ArgumentParser
 import torch
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader
-from torch.optim.lr_scheduler import LambdaLR
-
 from ignite.engine import Engine, Events
 from ignite.handlers import ModelCheckpoint
 from ignite.metrics import Loss, MetricsLambda, RunningAverage
-from ignite.contrib.handlers import ProgressBar, PiecewiseLinear, LRScheduler
+from ignite.contrib.handlers import ProgressBar, PiecewiseLinear
 from ignite.contrib.handlers.tensorboard_logger import TensorboardLogger, OutputHandler, OptimizerParamsHandler
 from pytorch_transformers import (OpenAIGPTLMHeadModel, OpenAIGPTTokenizer, OpenAIGPTConfig,
                                   GPT2LMHeadModel, GPT2Tokenizer, GPT2Config,
                                   WEIGHTS_NAME, CONFIG_NAME, AdamW)
 
-from od.inputters.tokenization_wb import WBTokenizer
-from od.inputters.dataset_wb import WBDataset, WBCollate
+from cotk.dataloader import BERTSingleTurnDialog
 
 logger = logging.getLogger(__file__)
 
@@ -35,50 +32,61 @@ def average_distributed_scalar(scalar, args):
     return scalar_t.item()
 
 
-def get_data_loaders(args, tokenizer):
-    """ Prepare the dataset for training and evaluation """
-    logger.info("Build train and validation dataloaders")
-    train_dataset = WBDataset(args, tokenizer, data_path=args.train_path)
-    valid_dataset = WBDataset(args, tokenizer, data_path=args.valid_path)
-    train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset) if args.distributed else None
-    valid_sampler = torch.utils.data.distributed.DistributedSampler(valid_dataset) if args.distributed else None
-    train_loader = DataLoader(train_dataset,
-                              collate_fn=WBCollate(train_dataset),
-                              pin_memory=(args.device == "cuda"),
-                              num_workers=args.num_workers,
-                              sampler=train_sampler,
-                              batch_size=args.train_batch_size,
-                              # shuffle=(not args.distributed))
-                              shuffle=False)
-    valid_loader = DataLoader(valid_dataset,
-                              collate_fn=WBCollate(valid_dataset),
-                              pin_memory=(args.device == "cuda"),
-                              num_workers=args.num_workers,
-                              sampler=valid_sampler,
-                              batch_size=args.valid_batch_size,
-                              shuffle=False)
-    return train_loader, valid_loader, train_sampler, valid_sampler
+def get_cotk_data_loaders(args):
+    data_class = BERTSingleTurnDialog.load_class(args.dataset)
+    data = data_class(args.datapath,
+                      bert_vocab_name=args.vocab_path,
+                      min_vocab_times=args.min_vocab_times,
+                      max_sent_length=args.max_sent_length)
+    # train_iter = data.get_batches("train", batch_size=args.train_batch_size, shuffle=True)
+    # valid_iter = data.get_batches("dev", batch_size=args.valid_batch_size, shuffle=False)
+    train_sampler, valid_sampler = None, None
+
+    class cotk_loader(torch.utils.data.Dataset):
+        def __init__(self, data, datakey, batch_size):
+            self.data = data
+            self.datakey = datakey
+            self.shuffle = True if datakey == "train" else False
+            self.batch_size = batch_size
+            self.tokenizer = data.tokenizer
+
+        def __len__(self):
+            return math.ceil(self.data.data_size[self.datakey] / self.batch_size)
+
+        def __getitem__(self, index):
+            return self.data.get_batch(self.datakey, [index])
+
+        def __iter__(self):
+            for batch in self.data.get_batches(self.datakey, batch_size=self.batch_size, shuffle=self.shuffle):
+                yield batch
+
+    train_iter = cotk_loader(data, "train", args.train_batch_size)
+    valid_iter = cotk_loader(data, "dev", args.valid_batch_size)
+    train_sampler = torch.utils.data.distributed.DistributedSampler(train_iter) if args.distributed else None
+    valid_sampler = torch.utils.data.distributed.DistributedSampler(valid_iter) if args.distributed else None
+    return train_iter, valid_iter, train_sampler, valid_sampler
 
 
 def train():
     parser = ArgumentParser()
+    parser.add_argument("--dataset", type=str, default="BERTOpenSubtitles", help="Dataset.")
+    parser.add_argument("--datapath", type=str, default="./data/",
+                        help="Path of the dataset.")  # resources://OpenSubtitles
+    parser.add_argument("--vocab_path", type=str, default="", help="Path of the vocab.")
+    parser.add_argument("--min_vocab_times", type=int, default=0, help="")
+    parser.add_argument("--max_sent_length", type=int, default=512, help="")
+    parser.add_argument("--valid_steps", type=int, default=125, help="")
     parser.add_argument('--load_pretrain', action='store_true', help='Load pretrian model')
-    parser.add_argument("--num_workers", type=int, default=8, help="How many subprocesses to use for data loading")
-    parser.add_argument("--warmup_steps", type=int, default=16000, help="")
-    parser.add_argument("--valid_steps", type=int, default=2500, help="")
-    parser.add_argument("--train_path", type=str, default="./data/toy_train.txt", help="Path of the dataset.")
-    parser.add_argument("--valid_path", type=str, default="./data/toy_valid.txt", help="Path of the dataset.")
 
-    parser.add_argument("--model_checkpoint", type=str, default="./pretrain/Cgpt/",
+    parser.add_argument("--model_checkpoint", type=str, default="openai-gpt", #"./pretrain/Cgpt/",
                         help="Path, url or short name of the model")
-    parser.add_argument("--max_history", type=int, default=25, help="Number of previous exchanges to keep in history")
     parser.add_argument("--train_batch_size", type=int, default=8, help="Batch size for training")
     parser.add_argument("--valid_batch_size", type=int, default=8, help="Batch size for validation")
     parser.add_argument("--gradient_accumulation_steps", type=int, default=8,
                         help="Accumulate gradients on several steps")
-    parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate")
+    parser.add_argument("--lr", type=float, default=6.25e-5, help="Learning rate")
     parser.add_argument("--max_norm", type=float, default=1.0, help="Clipping gradient norm")
-    parser.add_argument("--n_epochs", type=int, default=70, help="Number of training epochs")
+    parser.add_argument("--n_epochs", type=int, default=3, help="Number of training epochs")
     parser.add_argument("--eval_before_start", action='store_true',
                         help="If true start with a first evaluation before training")
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu",
@@ -103,18 +111,30 @@ def train():
         torch.distributed.init_process_group(backend='nccl', init_method='env://')
 
     logger.info("Prepare tokenizer, pretrained model and optimizer - add special tokens for fine-tuning")
-    tokenizer = WBTokenizer(os.path.join(args.model_checkpoint, "vocab.txt"), split=True)
+    model_class = GPT2LMHeadModel if "Cgpt" in args.model_checkpoint else OpenAIGPTLMHeadModel
+    model_config = GPT2Config if "Cgpt" in args.model_checkpoint else OpenAIGPTConfig
+    tokenizer_class = GPT2Tokenizer if "Cgpt" in args.model_checkpoint else OpenAIGPTTokenizer
+
     if args.load_pretrain:
-        model = OpenAIGPTLMHeadModel.from_pretrained(args.model_checkpoint)
+        model = model_class.from_pretrained(args.model_checkpoint)
+        tokenizer_init = args.model_checkpoint
     else:
-        config = OpenAIGPTConfig.from_json_file(args.model_checkpoint + "config.json")
-        model = OpenAIGPTLMHeadModel(config)
+        assert args.vocab_path
+        config = model_config.from_json_file(args.model_checkpoint + "config.json")
+        model = model_class(config)
+        tokenizer_init = args.vocab_path
+
     model.to(args.device)
 
     optimizer = AdamW(model.parameters(), lr=args.lr, correct_bias=True)
 
     logger.info("Prepare datasets")
-    train_loader, val_loader, train_sampler, valid_sampler = get_data_loaders(args, tokenizer)
+    train_loader, val_loader, train_sampler, valid_sampler = get_cotk_data_loaders(args)
+    if args.vocab_path:
+        tokenizer = train_loader.tokenizer
+    else:
+        tokenizer = tokenizer_class.from_pretrained(tokenizer_init)
+
     # Prepare model for FP16 and distributed training if needed (order is important, distributed should be the last)
     if args.fp16:
         from apex import amp  # Apex is only required if we use fp16 training
@@ -124,9 +144,10 @@ def train():
 
     # Training function and trainer
     def update(engine, batch):
-        input_ids, lm_labels, token_type_ids = tuple(input_tensor.to(args.device) for input_tensor in batch)
+        inputs = [batch["input_HGF"], batch["label_HGF"]]
+        input_ids, lm_labels = tuple(torch.LongTensor(x).to(args.device) for x in inputs)
         model.train()
-        (lm_loss), *_ = model(input_ids, labels=lm_labels, token_type_ids=token_type_ids)
+        (lm_loss), *_ = model(input_ids, labels=lm_labels)
         loss = lm_loss / args.gradient_accumulation_steps
         if args.fp16:
             with amp.scale_loss(loss, optimizer) as scaled_loss:
@@ -146,9 +167,10 @@ def train():
     def inference(engine, batch):
         model.eval()
         with torch.no_grad():
-            input_ids, lm_labels, token_type_ids = tuple(input_tensor.to(args.device) for input_tensor in batch)
+            inputs = [batch["input_gpt"], batch["label_gpt"]]
+            input_ids, lm_labels = tuple(torch.LongTensor(x).to(args.device) for x in inputs)
             # logger.info(tokenizer.decode(input_ids[0, -1, :].tolist()))
-            lm_logits, *_ = model(input_ids, token_type_ids=token_type_ids)
+            lm_logits, *_ = model(input_ids)
             lm_logits_flat_shifted = lm_logits[..., :-1, :].contiguous().view(-1, lm_logits.size(-1))
             lm_labels_flat_shifted = lm_labels[..., 1:].contiguous().view(-1)
             return lm_logits_flat_shifted, lm_labels_flat_shifted
@@ -156,17 +178,17 @@ def train():
     evaluator = Engine(inference)
 
     # Attach evaluation to trainer: we evaluate when we start the training and at the end of each epoch
-    # trainer.add_event_handler(Events.EPOCH_COMPLETED, lambda _: evaluator.run(val_loader))
-    # if args.n_epochs < 1:
-    #     trainer.add_event_handler(Events.COMPLETED, lambda _: evaluator.run(val_loader))
-    # if args.eval_before_start:
-    #     trainer.add_event_handler(Events.STARTED, lambda _: evaluator.run(val_loader))
+    trainer.add_event_handler(Events.EPOCH_COMPLETED, lambda _: evaluator.run(val_loader))
+    if args.n_epochs < 1:
+        trainer.add_event_handler(Events.COMPLETED, lambda _: evaluator.run(val_loader))
+    if args.eval_before_start:
+        trainer.add_event_handler(Events.STARTED, lambda _: evaluator.run(val_loader))
 
     # Evaluation during training
     @trainer.on(Events.ITERATION_COMPLETED)
     def log_iterations(engine):
-        # if engine.state.iteration % int(0.1 * len(train_loader)) == 0:
-        if engine.state.iteration % args.valid_steps == 0:
+        if engine.state.iteration % int(0.2 * len(train_loader)) == 0:
+            # if engine.state.iteration % args.valid_steps == 0:
             evaluator.run(val_loader)
 
     # Make sure distributed data samplers split the dataset nicely between the distributed processes
@@ -174,13 +196,8 @@ def train():
         trainer.add_event_handler(Events.EPOCH_STARTED, lambda engine: train_sampler.set_epoch(engine.state.epoch))
         evaluator.add_event_handler(Events.EPOCH_STARTED, lambda engine: valid_sampler.set_epoch(engine.state.epoch))
 
-    # noam decrease the learning rate
-    model_size = model.config.n_embd
-    noam_scheduler = LambdaLR(optimizer, lr_lambda=lambda step: (
-            model_size ** (-0.5) *
-            min(step ** (-0.5), step * args.warmup_steps ** (-1.5))) if step != 0 else 1, last_epoch=-1)
-    scheduler = LRScheduler(noam_scheduler)
-    # scheduler = PiecewiseLinear(optimizer, "lr", [(0, args.lr), (args.n_epochs * len(train_loader), 0.0)])
+    # Linearly decrease the learning rate from lr to zero
+    scheduler = PiecewiseLinear(optimizer, "lr", [(0, args.lr), (args.n_epochs * len(train_loader), 0.0)])
     trainer.add_event_handler(Events.ITERATION_STARTED, scheduler)
 
     # Prepare metrics - note how we compute distributed metrics

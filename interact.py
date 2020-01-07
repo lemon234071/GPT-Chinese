@@ -13,7 +13,7 @@ import torch
 import torch.nn.functional as F
 
 from pytorch_pretrained_bert import OpenAIGPTLMHeadModel, GPT2LMHeadModel
-from help.WB_tokenization import WBTokenizer, VOCAB_FILE
+from od.WB_tokenization import WBTokenizer, VOCAB_FILE
 
 SPECIAL_TOKENS = ["</s>", "</s>", "<Lua heritage>", "<Lua heritage>", "<pad>"]
 

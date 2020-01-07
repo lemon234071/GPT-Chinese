@@ -17,9 +17,8 @@ from ignite.contrib.handlers import ProgressBar, PiecewiseLinear
 from ignite.contrib.handlers.tensorboard_logger import TensorboardLogger, OutputHandler, OptimizerParamsHandler
 from pytorch_pretrained_bert import (OpenAIAdam, OpenAIGPTConfig, OpenAIGPTLMHeadModel, WEIGHTS_NAME, CONFIG_NAME)
 
-from help.WB_tokenization import WBTokenizer, VOCAB_FILE
-from help.dataset_weibolm_txt import WBDataset, WBCollate
-from cotk.dataloader import GPTSingleTurnDialog
+from od.inputters.WB_tokenization import WBTokenizer, VOCAB_FILE
+from od.inputters.dataset_weibolm_txt import WBDataset, WBCollate
 
 
 logger = logging.getLogger(__file__)
@@ -62,42 +61,6 @@ def get_data_loaders(args, tokenizer):
     return train_loader, valid_loader, train_sampler, valid_sampler
 
 
-def get_cotk_data_loaders(args):
-    data_class = GPTSingleTurnDialog.load_class(args.dataset)
-    data = data_class(args.datapath,
-                      bert_vocab_name=args.vocab_path,
-                      min_vocab_times=args.min_vocab_times,
-                      max_sent_length=args.max_sent_length)
-    # train_iter = data.get_batches("train", batch_size=args.train_batch_size, shuffle=True)
-    # valid_iter = data.get_batches("dev", batch_size=args.valid_batch_size, shuffle=False)
-    train_sampler, valid_sampler = None, None
-
-    class cotk_loader(torch.utils.data.Dataset):
-        def __init__(self, data, datakey, batch_size):
-            self.data = data
-            self.datakey = datakey
-            self.shuffle = False
-            # self.shuffle = True if datakey == "train" else False
-            self.batch_size = batch_size
-            self.tokenizer = data.tokenizer
-
-        def __len__(self):
-            return math.ceil(self.data.data_size[self.datakey] / self.batch_size)
-
-        def __getitem__(self, index):
-            return self.data.get_batch(self.datakey, [index])
-
-        def __iter__(self):
-            for batch in self.data.get_batches(self.datakey, batch_size=self.batch_size, shuffle=self.shuffle):
-                yield batch
-
-    train_iter = cotk_loader(data, "train", args.train_batch_size)
-    valid_iter = cotk_loader(data, "dev", args.valid_batch_size)
-    train_sampler = torch.utils.data.distributed.DistributedSampler(train_iter) if args.distributed else None
-    valid_sampler = torch.utils.data.distributed.DistributedSampler(valid_iter) if args.distributed else None
-    return train_iter, valid_iter, train_sampler, valid_sampler
-
-
 def train():
     parser = ArgumentParser()
     parser.add_argument("--dataset", type=str, default="GPTOpenSubtitles", help="Dataset.")
@@ -108,14 +71,13 @@ def train():
     parser.add_argument("--warmup_steps", type=int, default=5000, help="")
     parser.add_argument("--valid_steps", type=int, default=125, help="")
 
-
     parser.add_argument("--train_path", type=str, default="./data/train.txt", help="Path of the dataset.")
     parser.add_argument("--valid_path", type=str, default="./data/valid.txt", help="Path of the dataset.")
     parser.add_argument("--model_checkpoint", type=str, default="./pretrain/Cgpt/",
                         help="Path, url or short name of the model")
     parser.add_argument("--max_history", type=int, default=25, help="Number of previous exchanges to keep in history")
-    parser.add_argument("--train_batch_size", type=int, default=8, help="Batch size for training")
-    parser.add_argument("--valid_batch_size", type=int, default=8, help="Batch size for validation")
+    parser.add_argument("--train_batch_size", type=int, default=2, help="Batch size for training")
+    parser.add_argument("--valid_batch_size", type=int, default=2, help="Batch size for validation")
     parser.add_argument("--gradient_accumulation_steps", type=int, default=8,
                         help="Accumulate gradients on several steps")
     parser.add_argument("--lr", type=float, default=6.25e-5, help="Learning rate")

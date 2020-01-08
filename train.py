@@ -73,7 +73,7 @@ def train():
     parser.add_argument("--max_history", type=int, default=25, help="Number of previous exchanges to keep in history")
     parser.add_argument("--train_batch_size", type=int, default=8, help="Batch size for training")
     parser.add_argument("--valid_batch_size", type=int, default=8, help="Batch size for validation")
-    parser.add_argument("--gradient_accumulation_steps", type=int, default=8,
+    parser.add_argument("--gradient_accumulation_steps", type=int, default=32,
                         help="Accumulate gradients on several steps")
     parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate")
     parser.add_argument("--max_norm", type=float, default=1.0, help="Clipping gradient norm")

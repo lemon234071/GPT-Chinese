@@ -48,8 +48,7 @@ def get_data_loaders(args, tokenizer):
                               num_workers=args.num_workers,
                               sampler=train_sampler,
                               batch_size=args.train_batch_size,
-                              # shuffle=(not args.distributed))
-                              shuffle=False)
+                              shuffle=(not args.distributed))
     valid_loader = DataLoader(valid_dataset,
                               collate_fn=WBCollate(valid_dataset),
                               pin_memory=(args.device == "cuda"),

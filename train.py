@@ -14,7 +14,7 @@ from torch.optim.lr_scheduler import LambdaLR
 from ignite.engine import Engine, Events
 from ignite.handlers import ModelCheckpoint
 from ignite.metrics import Loss, MetricsLambda, RunningAverage
-from ignite.contrib.handlers import ProgressBar, PiecewiseLinear, LRScheduler
+from ignite.contrib.handlers import ProgressBar, PiecewiseLinear, LRScheduler, CustomPeriodicEvent
 from ignite.contrib.handlers.tensorboard_logger import TensorboardLogger, OutputHandler, OptimizerParamsHandler
 from pytorch_transformers import (OpenAIGPTLMHeadModel, OpenAIGPTTokenizer, OpenAIGPTConfig,
                                   GPT2LMHeadModel, GPT2Tokenizer, GPT2Config,
@@ -65,7 +65,7 @@ def train():
     parser.add_argument("--num_workers", type=int, default=8, help="How many subprocesses to use for data loading")
     parser.add_argument("--warmup_steps", type=int, default=16000, help="")
     parser.add_argument("--valid_steps", type=int, default=2500, help="")
-    parser.add_argument("--train_path", type=str, default="./data/bug_train.txt", help="Path of the dataset.")
+    parser.add_argument("--train_path", type=str, default="./data/toy_train.txt", help="Path of the dataset.")
     parser.add_argument("--valid_path", type=str, default="./data/toy_valid.txt", help="Path of the dataset.")
 
     parser.add_argument("--model_checkpoint", type=str, default="./pretrain/Cgpt/",
@@ -164,7 +164,7 @@ def train():
     # Evaluation during training
     @trainer.on(Events.ITERATION_COMPLETED)
     def log_iterations(engine):
-        if engine.state.iteration % int(0.1 * len(train_loader)) == 0:
+        if engine.state.iteration % max(int(0.1 * len(train_loader)), 1) == 0:
         # if engine.state.iteration % args.valid_steps == 0:
             evaluator.run(val_loader)
 
@@ -192,6 +192,9 @@ def train():
     for name, metric in metrics.items():
         metric.attach(evaluator, name)
 
+    n_save = 50000
+    cpe1 = CustomPeriodicEvent(n_iterations=n_save)
+    cpe1.attach(trainer)
     # On the main process: add progress bar, tensorboard, checkpoints and save model, configuration and tokenizer before we start to train
     if args.local_rank in [-1, 0]:
         pbar = ProgressBar(persist=True)
@@ -208,6 +211,9 @@ def train():
                          event_name=Events.EPOCH_COMPLETED)
 
         checkpoint_handler = ModelCheckpoint(tb_logger.writer.logdir, 'checkpoint', save_interval=1, n_saved=3)
+        # Let's define an event every 1000 iterations
+        trainer.add_event_handler(cpe1.Events.ITERATIONS_50000_COMPLETED, checkpoint_handler, {
+            'mymodel': getattr(model, 'module', model)})
         trainer.add_event_handler(Events.EPOCH_COMPLETED, checkpoint_handler, {
             'mymodel': getattr(model, 'module', model)})  # "getattr" take care of distributed encapsulation
 

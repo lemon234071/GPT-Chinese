@@ -161,12 +161,14 @@ def train():
     # if args.eval_before_start:
     #     trainer.add_event_handler(Events.STARTED, lambda _: evaluator.run(val_loader))
 
+    cpe1 = CustomPeriodicEvent(n_iterations=40000)
+    cpe1.attach(trainer)
     # Evaluation during training
-    @trainer.on(Events.ITERATION_COMPLETED)
+    @trainer.on(cpe1.Events.ITERATIONS_40000_COMPLETED)
     def log_iterations(engine):
-        if engine.state.iteration % max(int(0.1 * len(train_loader)), 1) == 0:
+        # if engine.state.iteration % max(int(0.1 * len(train_loader)), 1) == 0:
         # if engine.state.iteration % args.valid_steps == 0:
-            evaluator.run(val_loader)
+        evaluator.run(val_loader)
 
     # Make sure distributed data samplers split the dataset nicely between the distributed processes
     if args.distributed:
@@ -192,9 +194,6 @@ def train():
     for name, metric in metrics.items():
         metric.attach(evaluator, name)
 
-    n_save = 50000
-    cpe1 = CustomPeriodicEvent(n_iterations=n_save)
-    cpe1.attach(trainer)
     # On the main process: add progress bar, tensorboard, checkpoints and save model, configuration and tokenizer before we start to train
     if args.local_rank in [-1, 0]:
         pbar = ProgressBar(persist=True)
@@ -212,7 +211,7 @@ def train():
 
         checkpoint_handler = ModelCheckpoint(tb_logger.writer.logdir, 'checkpoint', save_interval=1, n_saved=3)
         # Let's define an event every 1000 iterations
-        trainer.add_event_handler(cpe1.Events.ITERATIONS_50000_COMPLETED, checkpoint_handler, {
+        trainer.add_event_handler(cpe1.Events.ITERATIONS_40000_COMPLETED, checkpoint_handler, {
             'mymodel': getattr(model, 'module', model)})
         trainer.add_event_handler(Events.EPOCH_COMPLETED, checkpoint_handler, {
             'mymodel': getattr(model, 'module', model)})  # "getattr" take care of distributed encapsulation

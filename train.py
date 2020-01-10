@@ -155,11 +155,11 @@ def train():
     evaluator = Engine(inference)
 
     # Attach evaluation to trainer: we evaluate when we start the training and at the end of each epoch
-    # trainer.add_event_handler(Events.EPOCH_COMPLETED, lambda _: evaluator.run(val_loader))
-    # if args.n_epochs < 1:
-    #     trainer.add_event_handler(Events.COMPLETED, lambda _: evaluator.run(val_loader))
-    # if args.eval_before_start:
-    #     trainer.add_event_handler(Events.STARTED, lambda _: evaluator.run(val_loader))
+    trainer.add_event_handler(Events.EPOCH_COMPLETED, lambda _: evaluator.run(val_loader))
+    if args.n_epochs < 1:
+        trainer.add_event_handler(Events.COMPLETED, lambda _: evaluator.run(val_loader))
+    if args.eval_before_start:
+        trainer.add_event_handler(Events.STARTED, lambda _: evaluator.run(val_loader))
 
     cpe1 = CustomPeriodicEvent(n_iterations=40000)
     cpe1.attach(trainer)

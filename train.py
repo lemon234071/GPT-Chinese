@@ -207,7 +207,7 @@ def train():
         tb_logger.attach(trainer, log_handler=OptimizerParamsHandler(optimizer), event_name=Events.ITERATION_STARTED)
         tb_logger.attach(evaluator, log_handler=OutputHandler(tag="validation", metric_names=list(metrics.keys()),
                                                               another_engine=trainer),
-                         event_name=Events.EPOCH_COMPLETED)
+                         event_name=cpe1.Events.ITERATIONS_40000_COMPLETED)
 
         checkpoint_handler = ModelCheckpoint(tb_logger.writer.logdir, 'checkpoint', save_interval=1, n_saved=3)
         # Let's define an event every 1000 iterations

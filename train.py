@@ -110,7 +110,7 @@ def train():
         model = OpenAIGPTLMHeadModel(config)
     model.to(args.device)
 
-    optimizer = AdamW({'params': model.parameters(), 'initial_lr': args.lr}, lr=args.lr, correct_bias=True)
+    optimizer = AdamW([{'params': model.parameters(), 'initial_lr': args.lr}], lr=args.lr, correct_bias=True)
 
     logger.info("Prepare datasets")
     train_loader, val_loader, train_sampler, valid_sampler = get_data_loaders(args, tokenizer)

@@ -163,8 +163,8 @@ def train():
 
     cpe1 = CustomPeriodicEvent(n_iterations=40000)
     cpe1.attach(trainer)
-    cpe2 = CustomPeriodicEvent(n_iterations=1)
-    cpe2.attach(evaluator)
+    # cpe2 = CustomPeriodicEvent(n_iterations=1)
+    # cpe2.attach(evaluator)
     # Evaluation during training
     @trainer.on(cpe1.Events.ITERATIONS_40000_COMPLETED)
     def log_iterations(engine):
@@ -210,9 +210,9 @@ def train():
         tb_logger.attach(evaluator, log_handler=OutputHandler(tag="validation", metric_names=list(metrics.keys()),
                                                               another_engine=trainer),
                          event_name=Events.EPOCH_COMPLETED)
-        tb_logger.attach(evaluator, log_handler=OutputHandler(tag="validation", metric_names=list(metrics.keys()),
-                                                              another_engine=trainer),
-                         event_name=cpe2.Events.ITERATIONS_1_COMPLETED)
+        # tb_logger.attach(evaluator, log_handler=OutputHandler(tag="validation", metric_names=list(metrics.keys()),
+        #                                                       another_engine=trainer),
+        #                  event_name=cpe2.Events.ITERATIONS_1_COMPLETED)
 
         checkpoint_handler = ModelCheckpoint(tb_logger.writer.logdir, 'checkpoint', save_interval=1, n_saved=3)
         # Let's define an event every 1000 iterations

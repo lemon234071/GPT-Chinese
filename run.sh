@@ -1,1 +1,1 @@
-CUDA_VISIBLE_DEVICES=0,1,2,3 python3 -m torch.distributed.launch --nproc_per_node=4 train.py --n_epochs 70 --load_pretrain --model_checkpoint ./runs/50bug/ --train_path ./data/maxlen320/train.txt --valid_path ./data/maxlen320/valid.txt --lr 0.3521 --warmup_steps 41326
+CUDA_VISIBLE_DEVICES=0,1,2,3 python3 -m torch.distributed.launch --nproc_per_node=4 train.py --n_epochs 70 --load_pretrain --model_checkpoint ./runs/50bug2/ --train_path ./data/train.txt --valid_path ./data/valid.txt --lr 0.3521 --warmup_steps 41326

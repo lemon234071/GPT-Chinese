@@ -180,7 +180,7 @@ def train():
     model_size = 768
     noam_scheduler = LambdaLR(optimizer, lr_lambda=lambda step: (
             model_size ** (-0.5) *
-            min(step ** (-0.5), step * args.warmup_steps ** (-1.5))) if step != 0 else 1, last_epoch=205798)
+            min(step ** (-0.5), step * args.warmup_steps ** (-1.5))) if step != 0 else 1, last_epoch=411596)
     scheduler = LRScheduler(noam_scheduler)
     # scheduler = PiecewiseLinear(optimizer, "lr", [(0, args.lr), (args.n_epochs * len(train_loader), 0.0)])
     trainer.add_event_handler(Events.ITERATION_STARTED, scheduler)

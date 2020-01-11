@@ -163,6 +163,8 @@ def train():
 
     cpe1 = CustomPeriodicEvent(n_iterations=40000)
     cpe1.attach(trainer)
+    cpe2 = CustomPeriodicEvent(n_iterations=1)
+    cpe2.attach(evaluator)
     # Evaluation during training
     @trainer.on(cpe1.Events.ITERATIONS_40000_COMPLETED)
     def log_iterations(engine):
@@ -180,7 +182,7 @@ def train():
     model_size = 768
     noam_scheduler = LambdaLR(optimizer, lr_lambda=lambda step: (
             model_size ** (-0.5) *
-            min(step ** (-0.5), step * args.warmup_steps ** (-1.5))) if step != 0 else 1, last_epoch=411596)
+            min(step ** (-0.5), step * args.warmup_steps ** (-1.5))) if step != 0 else 1, last_epoch=-1)
     scheduler = LRScheduler(noam_scheduler)
     # scheduler = PiecewiseLinear(optimizer, "lr", [(0, args.lr), (args.n_epochs * len(train_loader), 0.0)])
     trainer.add_event_handler(Events.ITERATION_STARTED, scheduler)
@@ -207,7 +209,10 @@ def train():
         tb_logger.attach(trainer, log_handler=OptimizerParamsHandler(optimizer), event_name=Events.ITERATION_STARTED)
         tb_logger.attach(evaluator, log_handler=OutputHandler(tag="validation", metric_names=list(metrics.keys()),
                                                               another_engine=trainer),
-                         event_name=cpe1.Events.ITERATIONS_40000_COMPLETED)
+                         event_name=Events.EPOCH_COMPLETED)
+        tb_logger.attach(evaluator, log_handler=OutputHandler(tag="validation", metric_names=list(metrics.keys()),
+                                                              another_engine=trainer),
+                         event_name=cpe2.Events.ITERATIONS_1_COMPLETED)
 
         checkpoint_handler = ModelCheckpoint(tb_logger.writer.logdir, 'checkpoint', save_interval=1, n_saved=3)
         # Let's define an event every 1000 iterations

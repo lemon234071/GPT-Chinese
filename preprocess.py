@@ -3,7 +3,7 @@ import random
 from tqdm import tqdm
 import gc
 
-random.seed(2020)
+random.seed(2019)
 
 
 def pro_CWB(indir, outdir):
@@ -12,6 +12,7 @@ def pro_CWB(indir, outdir):
     new_single = []
     new_multi = []
     n_drop = 0
+    max_len = 0
     print(len(single_data)+len(multi_data))
     for dialog in single_data:
         new_dialog = []
@@ -22,10 +23,11 @@ def pro_CWB(indir, outdir):
                     new_seq.append(token)
             assert len(new_seq) > 0
             new_dialog.append(new_seq)
-        if sum([len(x) for x in new_dialog]) + 2 + len(new_dialog) > 512:
+        if sum([len(x) for x in new_dialog]) + 2 + len(new_dialog) > 256:
             n_drop += 1
             print(new_dialog)
             continue
+        max_len = max(max_len, sum([len(x) for x in new_dialog]) + 2 + len(new_dialog))
         new_single.append(new_dialog)
 
     for dialog in multi_data:
@@ -47,12 +49,13 @@ def pro_CWB(indir, outdir):
     for dialog in tqdm(new_multi):
         for i in range(2, len(dialog)+1):
             new_dialog = dialog[:i]
-            if sum([len(x) for x in new_dialog[-2:]]) + 2 + 2 > 512:
+            if sum([len(x) for x in new_dialog[-2:]]) + 2 + 2 > 256:
                 n_drop += 1
                 print(new_dialog[-2:])
                 continue
-            while sum([len(x) for x in new_dialog]) + 2 + len(new_dialog) > 512:
+            while sum([len(x) for x in new_dialog]) + 2 + len(new_dialog) > 256:
                 new_dialog = new_dialog[1:]
+            max_len = max(max_len, sum([len(x) for x in new_dialog]) + 2 + len(new_dialog))
             split_muli.append(new_dialog)
 
     print("drop", n_drop)

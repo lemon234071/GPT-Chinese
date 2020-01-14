@@ -168,6 +168,7 @@ def clean_data(indir, outdir):
     white_multi = []
     white_single = []
     for dialog in tqdm(multi_data, mininterval=1):
+        flag = False
         new_dialog = []
         for seq in dialog:
             new_seq = []
@@ -176,11 +177,16 @@ def clean_data(indir, outdir):
                 new_seq.append(one)
             else:
                 white_multi.append(seq)
+                if len(dialog) < 3:
+                    flag = True
+                    break
                 new_seq.append("哦")
                 n_multi += 1
                 # import pdb
                 # pdb.set_trace()
             new_dialog.append(new_seq)
+        if flag:
+            continue
         new_multi.append(new_dialog)
 
     new_single = []

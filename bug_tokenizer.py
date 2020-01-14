@@ -99,7 +99,8 @@ def bug_toke():
                               shuffle=False)
 
     test_tokenizer = []
-    for batch in train_loader:
+    from tqdm import tqdm
+    for batch in tqdm(train_loader, mininterval=1):
         for seq in batch:
             for k, v in seq.items():
                 if k == "origin":

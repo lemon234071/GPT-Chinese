@@ -151,7 +151,7 @@ def clean_data(indir, outdir):
     dirty = set()
 
     new_multi = []
-    for dialog in multi_data:
+    for dialog in tqdm(multi_data, mininterval=1):
         new_dialog = []
         for seq in dialog:
             new_seq = []
@@ -165,7 +165,7 @@ def clean_data(indir, outdir):
         new_multi.append(new_dialog)
 
     new_single = []
-    for dialog in single_data:
+    for dialog in tqdm(single_data, mininterval=1):
         flag = False
         new_dialog = []
         for seq in dialog:

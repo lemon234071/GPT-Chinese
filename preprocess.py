@@ -7,8 +7,8 @@ random.seed(2019)
 
 
 def pro_CWB(indir, outdir, maxlen):
-    single_data = load_json(indir + "single_final_v1.json")
-    multi_data = load_json(indir + "multi_final_v1.json")
+    single_data = load_json(indir + "single_v2.json")
+    multi_data = load_json(indir + "multi_v2.json")
     new_single = []
     new_multi = []
     n_drop = 0
@@ -98,6 +98,7 @@ def pro_CWB(indir, outdir, maxlen):
     random.shuffle(train)
     random.shuffle(valid)
     random.shuffle(test)
+    print(outdir + "train.txt")
     save_txt("\n".join(train), outdir + "train.txt")
     save_txt("\n".join(valid_txt), outdir + "valid.txt")
     save_txt("\n".join(test_txt), outdir + "test.txt")
@@ -159,8 +160,8 @@ def clean_data(indir, outdir):
             if one:
                 new_seq.append(one)
             else:
-                print("multi空")
-                raise Exception
+                import pdb
+                pdb.set_trace()
             new_dialog.append(new_seq)
         new_multi.append(new_dialog)
 

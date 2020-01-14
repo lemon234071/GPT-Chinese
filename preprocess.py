@@ -222,7 +222,7 @@ def clean_data(indir, outdir):
 
 
 def main():
-    clean_data("/home/wangyida/211/v3/data/CleanWB/", "/home/wangyida/211/v3/data/CleanWB/")
+    clean_data("/home/wangyida/211/v3/data/CleanWB/", "/home/wangyida/211/v3/data/CleanWB/bert_dirty/")
     pro_CWB("/home/wangyida/211/v3/data/CleanWB/", "./data/", 320)
     print("over")
 

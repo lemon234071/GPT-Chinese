@@ -165,6 +165,8 @@ def clean_data(indir, outdir):
     n_multi = 0
     n_single = 0
     new_multi = []
+    white_multi = []
+    white_single = []
     for dialog in tqdm(multi_data, mininterval=1):
         new_dialog = []
         for seq in dialog:
@@ -173,7 +175,7 @@ def clean_data(indir, outdir):
             if one:
                 new_seq.append(one)
             else:
-                print(seq)
+                white_multi.append(seq)
                 new_seq.append("哦")
                 n_multi += 1
                 # import pdb
@@ -191,7 +193,7 @@ def clean_data(indir, outdir):
             if one:
                 new_seq.append(one)
             else:
-                print(seq)
+                white_single.append(seq)
                 n_single += 1
                 flag = True
                 break
@@ -200,10 +202,15 @@ def clean_data(indir, outdir):
             continue
         new_single.append(new_dialog)
 
-    print(n_single, "multi:", new_multi)
+    print(n_single, "multi:", n_multi)
+    print(len(new_multi), "multi len")
+    print(len(new_single), "single len")
+    save_json(list(dirty), outdir + "bert_dirty.txt")
+    save_json(white_single, outdir + "single_white.json")
+    save_json(white_multi, outdir + "multi_white.json")
     save_json(new_multi, outdir + "multi_v2.json")
     save_json(new_single, outdir + "single_v2.json")
-    save_json(list(dirty), outdir + "bert_dirty.txt")
+
 
 
 def main():

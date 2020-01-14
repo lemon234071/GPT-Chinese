@@ -43,7 +43,7 @@ class WBDataset(Dataset):
                 return dict((n, tokenize(o)) for n, o in obj.items())
             return list(tokenize(o) for o in obj)
         utterance = tokenize(utterance1)
-        utterance["origin"] = utterance
+        utterance["origin"] = utterance1
         return utterance
         history = utterance["history"][-(2 * self.args.max_history + 1):]
         pack_instance = defaultdict(list)

@@ -109,6 +109,12 @@ import unicodedata
 
 
 def clean_data(indir, outdir):
+    def is_number(s):
+        try:
+            float(s)
+            return True
+        except ValueError:
+            pass
     def _is_whitespace(char):
         """Checks whether `chars` is a whitespace character."""
         # \t, \n, and \r are technically contorl characters but we treat them
@@ -135,8 +141,10 @@ def clean_data(indir, outdir):
         """Performs invalid character removal and whitespace cleanup on text."""
         output = []
         for char in text:
+            if is_number(char):
+                continue
             cp = ord(char)
-            if cp == 0 or cp == 0xfffd or _is_control(char) or cp not in vocab:
+            if cp == 0 or cp == 0xfffd or _is_control(char) or (cp not in vocab):
                 dirty.add(cp)
                 continue
             if _is_whitespace(char):
@@ -175,6 +183,7 @@ def clean_data(indir, outdir):
             if one:
                 new_seq.append(one)
             else:
+                print(one)
                 flag = True
                 break
             new_dialog.append(new_seq)

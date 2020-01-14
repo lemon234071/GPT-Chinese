@@ -43,6 +43,7 @@ class WBDataset(Dataset):
                 return dict((n, tokenize(o)) for n, o in obj.items())
             return list(tokenize(o) for o in obj)
         utterance = tokenize(utterance1)
+        utterance["origin"] = utterance
         return utterance
         history = utterance["history"][-(2 * self.args.max_history + 1):]
         pack_instance = defaultdict(list)
@@ -101,11 +102,16 @@ def bug_toke():
     for batch in train_loader:
         for seq in batch:
             for k, v in seq.items():
+                if k == "origin":
+                    continue
                 for sent in v:
                     one = "".join(sent)
-                    assert "[UNK]" not in one
-                    assert "<unk>" not in one
-
+                    try:
+                        assert "[UNK]" not in one
+                        assert "<unk>" not in one
+                    except:
+                        import pdb
+                        pdb.set_trace()
                     test_tokenizer.append(one)
     save_txt("\n".join(test_tokenizer), "./bug_tokenizer.txt")
     print(1)

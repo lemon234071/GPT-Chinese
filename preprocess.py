@@ -141,9 +141,10 @@ def clean_data(indir, outdir):
         """Performs invalid character removal and whitespace cleanup on text."""
         output = []
         for char in text:
-            if char not in vocab:
-                dirty.add(char)
-                continue
+            if char != " ":
+                if char not in vocab:
+                    dirty.add(char)
+                    continue
             # if is_number(char):
             #     continue
             cp = ord(char)

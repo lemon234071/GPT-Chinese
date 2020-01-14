@@ -142,6 +142,9 @@ def clean_data(indir, outdir):
         output = []
         for char in text:
             if char != " ":
+                if is_number(char):
+                    import pdb
+                    pdb.set_trace()
                 if char not in vocab:
                     dirty.add(char)
                     continue

@@ -1,6 +1,7 @@
-#!/usr/bin/env python
-# coding:utf8
-
+from torch.utils.data import DataLoader
+from pytorch_transformers import BertTokenizer
+from argparse import ArgumentParser
+from od.utils.data_utils import save_txt
 from collections import defaultdict
 from itertools import chain
 import torch
@@ -11,45 +12,6 @@ SPECIAL_TOKENS = ["<Lua heritage>", "<eos>", "madeupword0000", "madeupword0001"]
 MODEL_INPUTS = ["input_ids", "lm_labels", "token_type_ids"]
 
 
-class WBCollate(object):
-
-    def __init__(self, dataset):
-        self.padding = dataset.tokenizer.pad_token_id
-
-    def __call__(self, batch):
-        tensor_batch = []
-        # TODO
-        dataset = self.pad_dataset(batch, padding=self.padding)
-        for input_name in MODEL_INPUTS:
-            tensor = torch.tensor(dataset[input_name])
-            tensor = tensor.view((-1, ) + tensor.shape[1:])
-            tensor_batch.append(tensor)
-
-        return tensor_batch
-
-    @staticmethod
-    def pad_dataset(dataset, padding=0):
-        """
-        Pad the dataset. This could be optimized by defining a Dataset class and padd only batches but this is simpler.
-        :param dataset:
-        :param padding:
-        :return:
-        """
-        # ["input_ids", "lm_labels", "token_type_ids"]
-        input_ids = [x for instance in dataset for x in instance["input_ids"]]
-        token_type_ids = [x for instance in dataset for x in instance["token_type_ids"]]
-        lm_labels = [x for instance in dataset for x in instance["lm_labels"]]
-
-        max_l = max(len(x) for x in input_ids)
-        for i in range(len(input_ids)):
-            input_ids[i].extend([padding] * (max_l - len(input_ids[i])))
-            token_type_ids[i].extend([padding] * (max_l - len(token_type_ids[i])))
-            lm_labels[i].extend([-1] * (max_l - len(lm_labels[i])))
-
-        return {"input_ids": input_ids,
-                "token_type_ids": token_type_ids,
-                "lm_labels": lm_labels
-                }
 
 
 class WBDataset(Dataset):
@@ -75,11 +37,13 @@ class WBDataset(Dataset):
 
         def tokenize(obj):
             if isinstance(obj, str):
+                return tokenizer.tokenize(obj)
                 return tokenizer.convert_tokens_to_ids(tokenizer.tokenize(obj))
             if isinstance(obj, dict):
                 return dict((n, tokenize(o)) for n, o in obj.items())
             return list(tokenize(o) for o in obj)
         utterance = tokenize(utterance1)
+        return utterance
         history = utterance["history"][-(2 * self.args.max_history + 1):]
         pack_instance = defaultdict(list)
         instance, _ = self.build_input_from_segments(history, utterance["candidates"][-1], lm_labels=True)
@@ -104,3 +68,48 @@ class WBDataset(Dataset):
         return instance, sequence
 
 
+
+
+
+class BugCollate(object):
+    def __init__(self, dataset):
+        self.padding = dataset.tokenizer.pad_token_id
+
+    def __call__(self, batch):
+        return batch
+
+
+def bug_toke():
+    parser = ArgumentParser()
+    parser.add_argument("--train_path", type=str, default="./data/toy_train.txt", help="Path of the dataset.")
+    parser.add_argument("--model_checkpoint", type=str, default="./pretrain/Cgpt/",
+                        help="Path, url or short name of the model")
+    parser.add_argument("--max_history", type=int, default=25, help="Number of previous exchanges to keep in history")
+    args = parser.parse_args()
+
+    tokenizer = BertTokenizer.from_pretrained(args.model_checkpoint,
+                                              unk_token="<unk>", sep_token="</s>",
+                                              pad_token="<pad>", cls_token="<Lua heritage>")
+    train_dataset = WBDataset(args, tokenizer, data_path=args.train_path)
+
+    train_loader = DataLoader(train_dataset,
+                              collate_fn=BugCollate(train_dataset),
+                              batch_size=4,
+                              shuffle=False)
+
+    test_tokenizer = []
+    for batch in train_loader:
+        for seq in batch:
+            for k, v in seq.items():
+                for sent in v:
+                    one = "".join(sent)
+                    assert "[UNK]" not in one
+                    assert "<unk>" not in one
+
+                    test_tokenizer.append(one)
+    save_txt("\n".join(test_tokenizer), "./bug_tokenizer.txt")
+    print(1)
+
+
+if __name__ == '__main__':
+    bug_toke()

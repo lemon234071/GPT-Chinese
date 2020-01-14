@@ -18,7 +18,8 @@ from ignite.contrib.handlers import ProgressBar, PiecewiseLinear, LRScheduler, C
 from ignite.contrib.handlers.tensorboard_logger import TensorboardLogger, OutputHandler, OptimizerParamsHandler
 from pytorch_transformers import (OpenAIGPTLMHeadModel, OpenAIGPTTokenizer, OpenAIGPTConfig,
                                   GPT2LMHeadModel, GPT2Tokenizer, GPT2Config,
-                                  WEIGHTS_NAME, CONFIG_NAME, AdamW)
+                                  WEIGHTS_NAME, CONFIG_NAME, AdamW,
+                                  BertTokenizer)
 
 from od.inputters.tokenization_wb import WBTokenizer
 from od.inputters.dataset_wb import WBDataset, WBCollate
@@ -102,10 +103,16 @@ def train():
         torch.distributed.init_process_group(backend='nccl', init_method='env://')
 
     logger.info("Prepare tokenizer, pretrained model and optimizer - add special tokens for fine-tuning")
-    tokenizer = WBTokenizer(os.path.join(args.model_checkpoint, "vocab.txt"), split=True)
+    # tokenizer = WBTokenizer(os.path.join(args.model_checkpoint, "vocab.txt"), split=True)
     if args.load_pretrain:
+        tokenizer = BertTokenizer.from_pretrained(args.model_checkpoint,
+                                                  unk_token="<unk>", sep_token="</s>",
+                                                  pad_token="<pad>", cls_token="<Lua heritage>")
         model = OpenAIGPTLMHeadModel.from_pretrained(args.model_checkpoint)
     else:
+        tokenizer = BertTokenizer(args.model_checkpoint + "vocab.txt",
+                                  unk_token="<unk>", sep_token="</s>",
+                                  pad_token="<pad>", cls_token="<Lua heritage>")
         config = OpenAIGPTConfig.from_json_file(args.model_checkpoint + "config.json")
         model = OpenAIGPTLMHeadModel(config)
     model.to(args.device)

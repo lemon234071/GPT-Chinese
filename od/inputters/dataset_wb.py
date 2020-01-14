@@ -70,7 +70,7 @@ class WBDataset(Dataset):
         candidates = hist_candi[1].split("[RESP]")
         return self.process({"history": history, "candidates": candidates})
 
-    def process(self, utterance1):
+    def process(self, text_dict):
         tokenizer = self.tokenizer
 
         def tokenize(obj):
@@ -79,7 +79,7 @@ class WBDataset(Dataset):
             if isinstance(obj, dict):
                 return dict((n, tokenize(o)) for n, o in obj.items())
             return list(tokenize(o) for o in obj)
-        utterance = tokenize(utterance1)
+        utterance = tokenize(text_dict)
         history = utterance["history"][-(2 * self.args.max_history + 1):]
         pack_instance = defaultdict(list)
         instance, _ = self.build_input_from_segments(history, utterance["candidates"][-1], lm_labels=True)

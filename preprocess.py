@@ -203,7 +203,7 @@ def clean_data(indir, outdir):
     print(n_single, "multi:", new_multi)
     save_json(new_multi, outdir + "multi_v2.json")
     save_json(new_single, outdir + "single_v2.json")
-    save_json("\n".join(list(dirty)), outdir + "bert_dirty.txt")
+    save_json(list(dirty), outdir + "bert_dirty.txt")
 
 
 def main():

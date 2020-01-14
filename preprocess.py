@@ -18,7 +18,9 @@ def pro_CWB(indir, outdir, maxlen):
         new_dialog = []
         for seq in dialog:
             new_seq = []
-            for token in seq:
+            import pdb
+            pdb.set_trace()
+            for token in list(seq):
                 if token.strip():
                     new_seq.append(token)
             assert len(new_seq) > 0
@@ -34,7 +36,7 @@ def pro_CWB(indir, outdir, maxlen):
         new_dialog = []
         for seq in dialog:
             new_seq = []
-            for token in seq:
+            for token in list(seq):
                 if token.strip():
                     new_seq.append(token)
             assert len(new_seq) > 0
@@ -62,6 +64,8 @@ def pro_CWB(indir, outdir, maxlen):
     new_multi = split_muli
     random.shuffle(new_multi)
     random.shuffle(new_single)
+    print(new_single[0])
+    print(new_multi[0])
     print(len(new_single) + len(new_multi))
 
     valid = []
@@ -142,9 +146,9 @@ def clean_data(indir, outdir):
         output = []
         for char in text:
             if char != " ":
-                if is_number(char):
-                    import pdb
-                    pdb.set_trace()
+                # if is_number(char):
+                #     import pdb
+                #     pdb.set_trace()
                 if char not in vocab:
                     dirty.add(char)
                     continue
@@ -175,10 +179,9 @@ def clean_data(indir, outdir):
         flag = False
         new_dialog = []
         for seq in dialog:
-            new_seq = []
             one = _clean_text(seq).strip()
             if one:
-                new_seq.append(one)
+                new_dialog.append(one)
             else:
                 white_multi.append(seq)
                 white_multi_dialog.append(dialog)
@@ -188,7 +191,6 @@ def clean_data(indir, outdir):
                 # new_seq.append("哦")
                 # import pdb
                 # pdb.set_trace()
-            new_dialog.append(new_seq)
         if flag:
             continue
         new_multi.append(new_dialog)
@@ -198,16 +200,14 @@ def clean_data(indir, outdir):
         flag = False
         new_dialog = []
         for seq in dialog:
-            new_seq = []
             one = _clean_text(seq).strip()
             if one:
-                new_seq.append(one)
+                new_dialog.append(one)
             else:
                 white_single.append(seq)
                 n_single += 1
                 flag = True
                 break
-            new_dialog.append(new_seq)
         if flag:
             continue
         new_single.append(new_dialog)
@@ -226,7 +226,7 @@ def clean_data(indir, outdir):
 
 def main():
     clean_data("/home/wangyida/211/v3/data/CleanWB/", "/home/wangyida/211/v3/data/CleanWB/bert_dirty/")
-    pro_CWB("/home/wangyida/211/v3/data/CleanWB/", "./data/", 320)
+    pro_CWB("/home/wangyida/211/v3/data/CleanWB/", "./data/", 512)
     print("over")
 
 

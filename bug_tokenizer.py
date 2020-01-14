@@ -82,7 +82,7 @@ class BugCollate(object):
 
 def bug_toke():
     parser = ArgumentParser()
-    parser.add_argument("--train_path", type=str, default="./data/toy_train.txt", help="Path of the dataset.")
+    parser.add_argument("--train_path", type=str, default="./bug.txt", help="Path of the dataset.")
     parser.add_argument("--model_checkpoint", type=str, default="./pretrain/Cgpt/",
                         help="Path, url or short name of the model")
     parser.add_argument("--max_history", type=int, default=25, help="Number of previous exchanges to keep in history")

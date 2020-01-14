@@ -150,8 +150,9 @@ def clean_data(indir, outdir):
                 #     import pdb
                 #     pdb.set_trace()
                 if char not in vocab:
-                    dirty.add(char)
-                    continue
+                    if char not in safe_vocab:
+                        dirty.add(char)
+                        continue
             # if is_number(char):
             #     continue
             cp = ord(char)
@@ -164,9 +165,11 @@ def clean_data(indir, outdir):
                 output.append(char)
         return "".join(output)
 
-    vocab = set(load_txt(indir+"filter_vocab.txt"))
+    vocab = set(load_txt(indir+"bert_dirty/filter_vocab.txt"))
+    safe_vocab = set(load_txt(indir+"bert_dirty/safe.txt"))
     single_data = load_json(indir + "single_final_v1.json")
     multi_data = load_json(indir + "multi_final_v1.json")
+    print(safe_vocab)
 
     dirty = set()
     n_multi = 0
@@ -215,17 +218,17 @@ def clean_data(indir, outdir):
     print(n_single, "multi:", n_multi)
     print(len(new_multi), "multi len")
     print(len(new_single), "single len")
-    save_json(white_multi_dialog, outdir+"multi_dirty_dialog.json")
-    save_json(list(dirty), outdir + "bert_dirty.json")
-    save_json(white_single, outdir + "single_white.json")
-    save_json(white_multi, outdir + "multi_white.json")
+    save_json(white_multi_dialog, outdir+"bert_dirty/multi_dirty_dialog.json")
+    save_json(list(dirty), outdir + "bert_dirty/bert_dirty.json")
+    save_json(white_single, outdir + "bert_dirty/single_white.json")
+    save_json(white_multi, outdir + "bert_dirty/multi_white.json")
     save_json(new_multi, outdir + "multi_v2.json")
     save_json(new_single, outdir + "single_v2.json")
 
 
 
 def main():
-    # clean_data("/home/wangyida/211/v3/data/CleanWB/", "/home/wangyida/211/v3/data/CleanWB/bert_dirty/")
+    clean_data("/home/wangyida/211/v3/data/CleanWB/", "/home/wangyida/211/v3/data/CleanWB/")
     pro_CWB("/home/wangyida/211/v3/data/CleanWB/bert_dirty/", "./data/", 512)
     print("over")
 

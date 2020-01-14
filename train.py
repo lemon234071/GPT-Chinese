@@ -105,12 +105,12 @@ def train():
     logger.info("Prepare tokenizer, pretrained model and optimizer - add special tokens for fine-tuning")
     # tokenizer = WBTokenizer(os.path.join(args.model_checkpoint, "vocab.txt"), split=True)
     if args.load_pretrain:
-        tokenizer = BertTokenizer.from_pretrained(args.model_checkpoint,
+        tokenizer = BertTokenizer.from_pretrained(args.model_checkpoint, do_lower_case=False,
                                                   unk_token="<unk>", sep_token="</s>",
                                                   pad_token="<pad>", cls_token="<Lua heritage>")
         model = OpenAIGPTLMHeadModel.from_pretrained(args.model_checkpoint)
     else:
-        tokenizer = BertTokenizer(args.model_checkpoint + "vocab.txt",
+        tokenizer = BertTokenizer(args.model_checkpoint + "vocab.txt", do_lower_case=False,
                                   unk_token="<unk>", sep_token="</s>",
                                   pad_token="<pad>", cls_token="<Lua heritage>")
         config = OpenAIGPTConfig.from_json_file(args.model_checkpoint + "config.json")

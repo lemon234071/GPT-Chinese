@@ -88,7 +88,7 @@ def bug_toke():
     parser.add_argument("--max_history", type=int, default=25, help="Number of previous exchanges to keep in history")
     args = parser.parse_args()
 
-    tokenizer = BertTokenizer.from_pretrained(args.model_checkpoint,
+    tokenizer = BertTokenizer.from_pretrained(args.model_checkpoint, do_lower_case=False,
                                               unk_token="<unk>", sep_token="</s>",
                                               pad_token="<pad>", cls_token="<Lua heritage>")
     train_dataset = WBDataset(args, tokenizer, data_path=args.train_path)

@@ -18,11 +18,10 @@ def pro_CWB(indir, outdir, maxlen):
         new_dialog = []
         for seq in dialog:
             new_seq = []
-            import pdb
-            pdb.set_trace()
             for token in list(seq):
-                if token.strip():
-                    new_seq.append(token)
+                char = token.strip()
+                if char:
+                    new_seq.append(char)
             assert len(new_seq) > 0
             new_dialog.append(new_seq)
         if sum([len(x) for x in new_dialog]) + 2 + len(new_dialog) > maxlen:
@@ -37,8 +36,9 @@ def pro_CWB(indir, outdir, maxlen):
         for seq in dialog:
             new_seq = []
             for token in list(seq):
-                if token.strip():
-                    new_seq.append(token)
+                char = token.strip()
+                if char:
+                    new_seq.append(char)
             assert len(new_seq) > 0
             new_dialog.append(new_seq)
         new_multi.append(new_dialog)

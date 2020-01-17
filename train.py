@@ -8,7 +8,6 @@ from argparse import ArgumentParser
 
 import torch
 from torch.nn.parallel import DistributedDataParallel
-from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import LambdaLR
 
 from ignite.engine import Engine, Events
@@ -16,13 +15,10 @@ from ignite.handlers import ModelCheckpoint
 from ignite.metrics import Loss, MetricsLambda, RunningAverage
 from ignite.contrib.handlers import ProgressBar, PiecewiseLinear, LRScheduler, CustomPeriodicEvent
 from ignite.contrib.handlers.tensorboard_logger import TensorboardLogger, OutputHandler, OptimizerParamsHandler
-from pytorch_transformers import (OpenAIGPTLMHeadModel, OpenAIGPTTokenizer, OpenAIGPTConfig,
-                                  GPT2LMHeadModel, GPT2Tokenizer, GPT2Config,
-                                  WEIGHTS_NAME, CONFIG_NAME, AdamW,
-                                  BertTokenizer)
+from pytorch_transformers import (OpenAIGPTLMHeadModel, OpenAIGPTConfig, GPT2LMHeadModel, GPT2Config,
+                                  WEIGHTS_NAME, CONFIG_NAME, AdamW, BertTokenizer)
 
-from od.inputters.tokenization_wb import WBTokenizer
-from od.inputters.dataset_wb import WBDataset, WBCollate
+from od.inputters.inputter import build_dataloaders
 
 logger = logging.getLogger(__file__)
 
@@ -36,47 +32,24 @@ def average_distributed_scalar(scalar, args):
     return scalar_t.item()
 
 
-def get_data_loaders(args, tokenizer):
-    """ Prepare the dataset for training and evaluation """
-    logger.info("Build train and validation dataloaders")
-    train_dataset = WBDataset(args, tokenizer, data_path=args.train_path)
-    valid_dataset = WBDataset(args, tokenizer, data_path=args.valid_path)
-    train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset) if args.distributed else None
-    valid_sampler = torch.utils.data.distributed.DistributedSampler(valid_dataset) if args.distributed else None
-    train_loader = DataLoader(train_dataset,
-                              collate_fn=WBCollate(train_dataset),
-                              pin_memory=(args.device == "cuda"),
-                              num_workers=args.num_workers,
-                              sampler=train_sampler,
-                              batch_size=args.train_batch_size,
-                              shuffle=(not args.distributed))
-    valid_loader = DataLoader(valid_dataset,
-                              collate_fn=WBCollate(valid_dataset),
-                              pin_memory=(args.device == "cuda"),
-                              num_workers=args.num_workers,
-                              sampler=valid_sampler,
-                              batch_size=args.valid_batch_size,
-                              shuffle=False)
-    return train_loader, valid_loader, train_sampler, valid_sampler
-
-
 def train():
     parser = ArgumentParser()
     parser.add_argument('--load_pretrain', action='store_true', help='Load pretrian model')
+    parser.add_argument('--gpt2', action='store_true', help='GPT2 model')
     parser.add_argument("--num_workers", type=int, default=8, help="How many subprocesses to use for data loading")
     parser.add_argument("--warmup_steps", type=int, default=16000, help="")
-    parser.add_argument("--valid_steps", type=int, default=2500, help="")
-    parser.add_argument("--train_path", type=str, default="./data/toy_train.txt", help="Path of the dataset.")
-    parser.add_argument("--valid_path", type=str, default="./data/toy_valid.txt", help="Path of the dataset.")
+    parser.add_argument("--valid_steps", type=int, default=100, help="")
+    parser.add_argument("--data_path", type=str, default="./data/toy_data.json", help="Path of the dataset.")
+    parser.add_argument("--dataset_cache", type=str, default="./data/dataset_cache", help="Path of the dataset_cache.")
 
     parser.add_argument("--model_checkpoint", type=str, default="./pretrain/Cgpt/",
                         help="Path, url or short name of the model")
-    parser.add_argument("--max_history", type=int, default=25, help="Number of previous exchanges to keep in history")
-    parser.add_argument("--train_batch_size", type=int, default=8, help="Batch size for training")
-    parser.add_argument("--valid_batch_size", type=int, default=8, help="Batch size for validation")
-    parser.add_argument("--gradient_accumulation_steps", type=int, default=32,
+    parser.add_argument("--max_history", type=int, default=30, help="Number of previous exchanges to keep in history")
+    parser.add_argument("--train_batch_size", type=int, default=2, help="Batch size for training")
+    parser.add_argument("--valid_batch_size", type=int, default=2, help="Batch size for validation")
+    parser.add_argument("--gradient_accumulation_steps", type=int, default=64,
                         help="Accumulate gradients on several steps")
-    parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate")
+    parser.add_argument("--lr", type=float, default=5e-5, help="Learning rate")
     parser.add_argument("--max_norm", type=float, default=1.0, help="Clipping gradient norm")
     parser.add_argument("--n_epochs", type=int, default=70, help="Number of training epochs")
     parser.add_argument("--eval_before_start", action='store_true',
@@ -103,24 +76,27 @@ def train():
         torch.distributed.init_process_group(backend='nccl', init_method='env://')
 
     logger.info("Prepare tokenizer, pretrained model and optimizer - add special tokens for fine-tuning")
-    # tokenizer = WBTokenizer(os.path.join(args.model_checkpoint, "vocab.txt"), split=True)
+    model_class = OpenAIGPTLMHeadModel if not args.gpt2 else GPT2LMHeadModel
+    config_class = OpenAIGPTConfig if not args.gpt2 else GPT2Config
+    tokenizer_class = BertTokenizer
     if args.load_pretrain:
-        tokenizer = BertTokenizer.from_pretrained(args.model_checkpoint, do_lower_case=False,
-                                                  unk_token="<unk>", sep_token="</s>",
-                                                  pad_token="<pad>", cls_token="<Lua heritage>")
-        model = OpenAIGPTLMHeadModel.from_pretrained(args.model_checkpoint)
+        tokenizer = tokenizer_class.from_pretrained(args.model_checkpoint, do_lower_case=True,
+                                                    unk_token="<unk>", sep_token="</s>",
+                                                    pad_token="<pad>", cls_token="<Lua heritage>")
+        model = model_class.from_pretrained(args.model_checkpoint)
     else:
-        tokenizer = BertTokenizer(args.model_checkpoint + "vocab.txt", do_lower_case=False,
-                                  unk_token="<unk>", sep_token="</s>",
-                                  pad_token="<pad>", cls_token="<Lua heritage>")
-        config = OpenAIGPTConfig.from_json_file(args.model_checkpoint + "config.json")
-        model = OpenAIGPTLMHeadModel(config)
+        tokenizer = tokenizer_class(os.path.join(args.model_checkpoint, "vocab.txt"), do_lower_case=True,
+                                    unk_token="<unk>", sep_token="</s>",
+                                    pad_token="<pad>", cls_token="<Lua heritage>")
+        config = config_class.from_json_file(os.path.join(args.model_checkpoint, CONFIG_NAME))
+        model = model_class(config)
     model.to(args.device)
 
     optimizer = AdamW([{'params': model.parameters(), 'initial_lr': args.lr}], lr=args.lr, correct_bias=True)
 
     logger.info("Prepare datasets")
-    train_loader, val_loader, train_sampler, valid_sampler = get_data_loaders(args, tokenizer)
+    train_loader, val_loader, train_sampler, valid_sampler = build_dataloaders(args, tokenizer)
+
     # Prepare model for FP16 and distributed training if needed (order is important, distributed should be the last)
     if args.fp16:
         from apex import amp  # Apex is only required if we use fp16 training
@@ -130,7 +106,7 @@ def train():
 
     # Training function and trainer
     def update(engine, batch):
-        input_ids, lm_labels, token_type_ids = tuple(input_tensor.to(args.device) for input_tensor in batch)
+        input_ids, token_type_ids, lm_labels = tuple(input_tensor.to(args.device) for input_tensor in batch)
         model.train()
         (lm_loss), *_ = model(input_ids, labels=lm_labels, token_type_ids=token_type_ids)
         loss = lm_loss / args.gradient_accumulation_steps
@@ -152,7 +128,7 @@ def train():
     def inference(engine, batch):
         model.eval()
         with torch.no_grad():
-            input_ids, lm_labels, token_type_ids = tuple(input_tensor.to(args.device) for input_tensor in batch)
+            input_ids, token_type_ids, lm_labels = tuple(input_tensor.to(args.device) for input_tensor in batch)
             # logger.info(tokenizer.decode(input_ids[0, -1, :].tolist()))
             lm_logits, *_ = model(input_ids, token_type_ids=token_type_ids)
             lm_logits_flat_shifted = lm_logits[..., :-1, :].contiguous().view(-1, lm_logits.size(-1))
@@ -168,16 +144,12 @@ def train():
     if args.eval_before_start:
         trainer.add_event_handler(Events.STARTED, lambda _: evaluator.run(val_loader))
 
-    cpe1 = CustomPeriodicEvent(n_iterations=40000)
-    cpe1.attach(trainer)
-    # cpe2 = CustomPeriodicEvent(n_iterations=1)
-    # cpe2.attach(evaluator)
     # Evaluation during training
-    @trainer.on(cpe1.Events.ITERATIONS_40000_COMPLETED)
+    @trainer.on(Events.ITERATION_STARTED)
     def log_iterations(engine):
         # if engine.state.iteration % max(int(0.1 * len(train_loader)), 1) == 0:
-        # if engine.state.iteration % args.valid_steps == 0:
-        evaluator.run(val_loader)
+        if engine.state.iteration % args.valid_steps == 0:
+            evaluator.run(val_loader)
 
     # Make sure distributed data samplers split the dataset nicely between the distributed processes
     if args.distributed:
@@ -205,8 +177,10 @@ def train():
 
     # On the main process: add progress bar, tensorboard, checkpoints and save model, configuration and tokenizer before we start to train
     if args.local_rank in [-1, 0]:
-        pbar = ProgressBar(persist=True)
+        pbar = ProgressBar(persist=True, mininterval=2)
         pbar.attach(trainer, metric_names=["loss", "lr"])
+        # pbar_val = ProgressBar(persist=True)
+        # pbar_val.attach(evaluator)
         evaluator.add_event_handler(Events.COMPLETED,
                                     lambda _: pbar.log_message("Validation: %s" % pformat(evaluator.state.metrics)))
 
@@ -217,13 +191,9 @@ def train():
         tb_logger.attach(evaluator, log_handler=OutputHandler(tag="validation", metric_names=list(metrics.keys()),
                                                               another_engine=trainer),
                          event_name=Events.EPOCH_COMPLETED)
-        # tb_logger.attach(evaluator, log_handler=OutputHandler(tag="validation", metric_names=list(metrics.keys()),
-        #                                                       another_engine=trainer),
-        #                  event_name=cpe2.Events.ITERATIONS_1_COMPLETED)
 
         checkpoint_handler = ModelCheckpoint(tb_logger.writer.logdir, 'checkpoint', save_interval=1, n_saved=3)
-        # Let's define an event every 1000 iterations
-        trainer.add_event_handler(cpe1.Events.ITERATIONS_40000_COMPLETED, checkpoint_handler, {
+        evaluator.add_event_handler(Events.EPOCH_COMPLETED, checkpoint_handler, {
             'mymodel': getattr(model, 'module', model)})
         trainer.add_event_handler(Events.EPOCH_COMPLETED, checkpoint_handler, {
             'mymodel': getattr(model, 'module', model)})  # "getattr" take care of distributed encapsulation
@@ -238,7 +208,8 @@ def train():
     # On the main process: close tensorboard logger and rename the last checkpoint (for easy re-loading with OpenAIGPTModel.from_pretrained method)
     if args.local_rank in [-1, 0] and args.n_epochs > 0:
         os.rename(checkpoint_handler._saved[-1][1][-1],
-                  os.path.join(tb_logger.writer.logdir, WEIGHTS_NAME))  # TODO: PR in ignite to have better access to saved file paths (cleaner)
+                  os.path.join(tb_logger.writer.logdir,
+                               WEIGHTS_NAME))  # TODO: PR in ignite to have better access to saved file paths (cleaner)
         tb_logger.close()
 
 

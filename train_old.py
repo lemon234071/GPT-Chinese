@@ -18,7 +18,7 @@ from ignite.contrib.handlers.tensorboard_logger import TensorboardLogger, Output
 from pytorch_pretrained_bert import (OpenAIAdam, OpenAIGPTConfig, OpenAIGPTLMHeadModel, WEIGHTS_NAME, CONFIG_NAME)
 
 from od.inputters.tokenization_wb import WBTokenizer
-from od.inputters.dataset_wb import WBDataset, WBCollate
+from od.inputters.dataset_wb import WBdistributeDataset, WBCollate
 
 logger = logging.getLogger(__file__)
 
@@ -35,8 +35,8 @@ def average_distributed_scalar(scalar, args):
 def get_data_loaders(args, tokenizer):
     """ Prepare the dataset for training and evaluation """
     logger.info("Build train and validation dataloaders")
-    train_dataset = WBDataset(args, tokenizer, data_path=args.train_path)
-    valid_dataset = WBDataset(args, tokenizer, data_path=args.valid_path)
+    train_dataset = WBdistributeDataset(args, tokenizer, data_path=args.train_path)
+    valid_dataset = WBdistributeDataset(args, tokenizer, data_path=args.valid_path)
     train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset) if args.distributed else None
     valid_sampler = torch.utils.data.distributed.DistributedSampler(valid_dataset) if args.distributed else None
     train_loader = DataLoader(train_dataset,
@@ -162,7 +162,7 @@ def train():
     # Evaluation every during training
     @trainer.on(Events.ITERATION_COMPLETED)
     def log_iterations(engine):
-        if engine.state.iteration % int(0.1 * len(train_loader)) == 0:
+        if engine.state.iteration % max(int(0.1 * len(train_loader)), 2) == 0:
         # if engine.state.iteration % args.valid_steps == 0:
             evaluator.run(val_loader)
 

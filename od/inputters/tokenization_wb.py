@@ -6,7 +6,6 @@ import os
 import logging
 
 import collections
-from od.inputters.tokenization import WordpieceTokenizer, BasicTokenizer
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +33,7 @@ def load_vocab(vocab_file):
 
 class WBTokenizer(object):
     """Runs end-to-end tokenization: punctuation splitting + wordpiece"""
+
     def __init__(self, vocab_file, lowcase=False, special_tokens=None, split=False):
         if not os.path.isfile(vocab_file):
             raise ValueError(
@@ -162,8 +162,9 @@ class WBTokenizer(object):
         out_string = ' '.join(tokens).strip()
         if clean_up_tokenization_spaces:
             # out_string = out_string.replace('<unk>', '')
-            out_string = out_string.replace(' .', '.').replace(' ?', '?').replace(' !', '!').replace(' ,', ',').replace(' ,', ','
-                    ).replace(" ' ", "'")
+            out_string = out_string.replace(' .', '.').replace(' ?', '?').replace(' !', '!').replace(' ,', ',').replace(
+                ' ,', ','
+                ).replace(" ' ", "'")
         return out_string
 
     def save_vocabulary(self, vocab_path):
@@ -189,9 +190,3 @@ class WBTokenizer(object):
                 writer.write(token + u'\n')
                 index += 1
         return vocab_file, special_tokens_file
-
-
-
-
-        
-

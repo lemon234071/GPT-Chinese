@@ -6,6 +6,84 @@ import gc
 random.seed(2019)
 
 
+def pro_CWB_json(indir, outdir, maxlen):
+    single_data = load_json(indir + "single_v2.json")
+    multi_data = load_json(indir + "multi_v2.json")
+    new_single = []
+    new_multi = []
+    n_drop = 0
+    max_len = 0
+    print(len(single_data) + len(multi_data))
+    for dialog in single_data:
+        new_dialog = []
+        for seq in dialog:
+            new_seq = []
+            for token in list(seq):
+                char = token.strip()
+                if char:
+                    new_seq.append(char)
+            assert len(new_seq) > 0
+            new_dialog.append(new_seq)
+        if sum([len(x) for x in new_dialog]) + 2 + len(new_dialog) > maxlen:
+            n_drop += 1
+            print(new_dialog)
+            continue
+        max_len = max(max_len, sum([len(x) for x in new_dialog]) + 2 + len(new_dialog))
+        new_single.append(new_dialog)
+
+    for dialog in multi_data:
+        new_dialog = []
+        for seq in dialog:
+            new_seq = []
+            for token in list(seq):
+                char = token.strip()
+                if char:
+                    new_seq.append(char)
+            assert len(new_seq) > 0
+            new_dialog.append(new_seq)
+        new_multi.append(new_dialog)
+
+    del single_data, multi_data
+    gc.collect()
+    print(len(new_multi) + len(new_single))
+
+    split_muli = []
+    for dialog in tqdm(new_multi):
+        for i in range(2, len(dialog) + 1):
+            new_dialog = dialog[:i]
+            if sum([len(x) for x in new_dialog[-2:]]) + 2 + 2 > maxlen:
+                n_drop += 1
+                print(new_dialog[-2:])
+                continue
+            while sum([len(x) for x in new_dialog]) + 2 + len(new_dialog) > maxlen:
+                new_dialog = new_dialog[1:]
+            max_len = max(max_len, sum([len(x) for x in new_dialog]) + 2 + len(new_dialog))
+            split_muli.append(new_dialog)
+
+    print("drop", n_drop)
+    new_multi = split_muli
+    random.shuffle(new_multi)
+    random.shuffle(new_single)
+    print(new_single[0])
+    print(new_multi[0])
+    print(len(new_single) + len(new_multi))
+
+    valid = new_single[-10000:-3000] + new_multi[-20000:-7000]
+    test = new_single[-3000:] + new_multi[-7000:]
+    train = new_single[:-10000] + new_multi[:-20000]
+
+    print(len(train))
+    print(len(valid))
+    print(len(test))
+    random.shuffle(train)
+    random.shuffle(valid)
+    random.shuffle(test)
+    print(outdir + "data.json")
+    save_json({"train": train, "valid": valid}, os.path.join(outdir, "train_valid.json"))
+    save_json({"test": test}, os.path.join(outdir, "test.json"))
+    print("pro_CWB over")
+
+
 def pro_CWB(indir, outdir, maxlen):
     single_data = load_json(indir + "single_v2.json")
     multi_data = load_json(indir + "multi_v2.json")
@@ -119,6 +197,7 @@ def clean_data(indir, outdir):
             return True
         except ValueError:
             pass
+
     def _is_whitespace(char):
         """Checks whether `chars` is a whitespace character."""
         # \t, \n, and \r are technically contorl characters but we treat them
@@ -165,8 +244,8 @@ def clean_data(indir, outdir):
                 output.append(char)
         return "".join(output)
 
-    vocab = set(load_txt(indir+"bert_dirty/filter_vocab.txt"))
-    safe_vocab = set(load_txt(indir+"bert_dirty/safe.txt"))
+    vocab = set(load_txt(indir + "bert_dirty/filter_vocab.txt"))
+    safe_vocab = set(load_txt(indir + "bert_dirty/safe.txt"))
     single_data = load_json(indir + "single_final_v1.json")
     multi_data = load_json(indir + "multi_final_v1.json")
     print(safe_vocab)
@@ -218,7 +297,7 @@ def clean_data(indir, outdir):
     print(n_single, "multi:", n_multi)
     print(len(new_multi), "multi len")
     print(len(new_single), "single len")
-    save_json(white_multi_dialog, outdir+"bert_dirty/multi_dirty_dialog.json")
+    save_json(white_multi_dialog, outdir + "bert_dirty/multi_dirty_dialog.json")
     save_json(list(dirty), outdir + "bert_dirty/bert_dirty.json")
     save_json(white_single, outdir + "bert_dirty/single_white.json")
     save_json(white_multi, outdir + "bert_dirty/multi_white.json")
@@ -226,10 +305,9 @@ def clean_data(indir, outdir):
     save_json(new_single, outdir + "single_v2.json")
 
 
-
 def main():
     clean_data("/home/wangyida/211/v3/data/CleanWB/", "/home/wangyida/211/v3/data/CleanWB/")
-    pro_CWB("/home/wangyida/211/v3/data/CleanWB/bert_dirty/", "./data/", 512)
+    pro_CWB_json("/home/wangyida/211/v3/data/CleanWB/bert_dirty/", "./data/", 320)
     print("over")
 
 

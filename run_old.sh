@@ -1,0 +1,1 @@
+CUDA_VISIBLE_DEVICES=1,2 python3 -m torch.distributed.launch --nproc_per_node=2 train_old.py --n_epochs 70 --load_pretrain --model_checkpoint ./pretrain/Cgpt/ --train_path ./data/train.txt --valid_path ./data/valid.txt --lr 5e-5 --gradient_accumulation_steps 64 --num_workers 1

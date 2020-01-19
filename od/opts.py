@@ -4,7 +4,8 @@ import torch
 
 def train_opts(parser):
     parser.add_argument("--dataset", type=str, default="GPTOpenSubtitles", help="Dataset.")
-    parser.add_argument("--datapath", type=str, default="./data/", help="Path of the dataset.")# resources://OpenSubtitles
+    parser.add_argument("--datapath", type=str, default="./data/",
+                        help="Path of the dataset.")  # resources://OpenSubtitles
     parser.add_argument("--vocab_path", type=str, default="./pretrain/Cgpt/vocab.txt", help="Path of the vocab.")
     parser.add_argument("--min_vocab_times", type=int, default=0, help="")
     parser.add_argument("--max_sent_length", type=int, default=512, help="")

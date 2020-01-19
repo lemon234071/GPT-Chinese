@@ -13,14 +13,13 @@ from torch.optim.lr_scheduler import LambdaLR
 from ignite.engine import Engine, Events
 from ignite.handlers import ModelCheckpoint
 from ignite.metrics import Loss, MetricsLambda, RunningAverage
-from ignite.contrib.handlers import ProgressBar, PiecewiseLinear, LRScheduler, CustomPeriodicEvent
+from ignite.contrib.handlers import ProgressBar, PiecewiseLinear, LRScheduler
 from ignite.contrib.handlers.tensorboard_logger import TensorboardLogger, OutputHandler, OptimizerParamsHandler
 from pytorch_transformers import (OpenAIGPTLMHeadModel, OpenAIGPTConfig, GPT2LMHeadModel, GPT2Config,
                                   WEIGHTS_NAME, CONFIG_NAME, AdamW, BertTokenizer)
 
 from od.inputters.inputter import build_dataloaders
-
-logger = logging.getLogger(__file__)
+from od.utils.logging import logger, init_logger
 
 
 def average_distributed_scalar(scalar, args):
@@ -34,26 +33,27 @@ def average_distributed_scalar(scalar, args):
 
 def train():
     parser = ArgumentParser()
-    parser.add_argument('--load_pretrain', action='store_true', help='Load pretrian model')
-    parser.add_argument('--gpt2', action='store_true', help='GPT2 model')
-    parser.add_argument("--num_workers", type=int, default=8, help="How many subprocesses to use for data loading")
-    parser.add_argument("--warmup_steps", type=int, default=16000, help="")
-    parser.add_argument("--valid_steps", type=int, default=100, help="")
-    parser.add_argument("--data_path", type=str, default="./data/toy_data.json", help="Path of the dataset.")
-    parser.add_argument("--dataset_cache", type=str, default="./data/dataset_cache", help="Path of the dataset_cache.")
-
-    parser.add_argument("--model_checkpoint", type=str, default="./pretrain/Cgpt/",
-                        help="Path, url or short name of the model")
-    parser.add_argument("--max_history", type=int, default=30, help="Number of previous exchanges to keep in history")
+    parser.add_argument("--model_checkpoint", type=str, default="https://", help="Path or URL of the model")
+    parser.add_argument("--from_step", type=int, default=-1, help="Init learning rate from this step")
+    parser.add_argument('--pretrained', action='store_true', help="If False train from scratch")
+    parser.add_argument("--data_path", type=str, default="",
+                        help="Path or url of the dataset. If empty download from COTK")
+    parser.add_argument("--dataset_cache", type=str, default="./data/dataset_cache",
+                        help="Path or url of the dataset cache")
+    parser.add_argument('--log_file', '-log_file', type=str, default="", help="Output logs to a file under this path")
+    parser.add_argument("--num_workers", type=int, default=8, help="Number of subprocesses for data loading")
+    parser.add_argument("--n_epochs", type=int, default=70, help="Number of training epochs")
     parser.add_argument("--train_batch_size", type=int, default=2, help="Batch size for training")
     parser.add_argument("--valid_batch_size", type=int, default=2, help="Batch size for validation")
-    parser.add_argument("--gradient_accumulation_steps", type=int, default=64,
-                        help="Accumulate gradients on several steps")
+    parser.add_argument("--max_history", type=int, default=15, help="Number of previous exchanges to keep in history")
     parser.add_argument("--lr", type=float, default=5e-5, help="Learning rate")
-    parser.add_argument("--max_norm", type=float, default=1.0, help="Clipping gradient norm")
-    parser.add_argument("--n_epochs", type=int, default=70, help="Number of training epochs")
     parser.add_argument("--eval_before_start", action='store_true',
                         help="If true start with a first evaluation before training")
+    parser.add_argument("--warmup_steps", type=int, default=5000, help="Warm up steps")
+    parser.add_argument("--valid_steps", type=int, default=5000, help="Perfom validation every X steps")
+    parser.add_argument("--gradient_accumulation_steps", type=int, default=64,
+                        help="Accumulate gradients on several steps")
+    parser.add_argument("--max_norm", type=float, default=1.0, help="Clipping gradient norm")
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu",
                         help="Device (cuda or cpu)")
     parser.add_argument("--fp16", type=str, default="",
@@ -62,10 +62,12 @@ def train():
                         help="Local rank for distributed training (-1: not distributed)")
     args = parser.parse_args()
 
-    # logging is set to INFO (resp. WARN) for main (resp. auxiliary) process. logger.info => log main process only, logger.warning => log all processes
+    init_logger(args.log_file)
+
+    # logging is set to INFO (resp. WARN) for main (resp. auxiliary) process.
+    # logger.info => log main process only, logger.warning => log all processes
     logging.basicConfig(level=logging.INFO if args.local_rank in [-1, 0] else logging.WARN)
-    logger.warning("Running process %d",
-                   args.local_rank)  # This is a logger.warning: it will be printed by all distributed processes
+    logger.warning("Running process %d", args.local_rank)
     logger.info("Arguments: %s", pformat(args))
 
     # Initialize distributed training if needed
@@ -76,10 +78,10 @@ def train():
         torch.distributed.init_process_group(backend='nccl', init_method='env://')
 
     logger.info("Prepare tokenizer, pretrained model and optimizer - add special tokens for fine-tuning")
-    model_class = OpenAIGPTLMHeadModel if not args.gpt2 else GPT2LMHeadModel
-    config_class = OpenAIGPTConfig if not args.gpt2 else GPT2Config
+    model_class = OpenAIGPTLMHeadModel if "gpt2" not in args.model_checkpoint else GPT2LMHeadModel
+    config_class = OpenAIGPTConfig if "gpt2" not in args.model_checkpoint else GPT2Config
     tokenizer_class = BertTokenizer
-    if args.load_pretrain:
+    if args.pretrained:
         tokenizer = tokenizer_class.from_pretrained(args.model_checkpoint, do_lower_case=True,
                                                     unk_token="<unk>", sep_token="</s>",
                                                     pad_token="<pad>", cls_token="<Lua heritage>")
@@ -157,11 +159,11 @@ def train():
         evaluator.add_event_handler(Events.EPOCH_STARTED, lambda engine: valid_sampler.set_epoch(engine.state.epoch))
 
     # noam decrease the learning rate
-    # model_size = model.config.n_embd
-    model_size = 768
-    noam_scheduler = LambdaLR(optimizer, lr_lambda=lambda step: (
-            model_size ** (-0.5) *
-            min(step ** (-0.5), step * args.warmup_steps ** (-1.5))) if step != 0 else 1, last_epoch=-1)
+    model_size = model.config.n_embd
+    # model_size = 768
+    noam_lambda = lambda step: (
+            model_size ** (-0.5) * min((step + 1) ** (-0.5), (step + 1) * args.warmup_steps ** (-1.5)))
+    noam_scheduler = LambdaLR(optimizer, lr_lambda=noam_lambda, last_epoch=args.from_step)
     scheduler = LRScheduler(noam_scheduler)
     # scheduler = PiecewiseLinear(optimizer, "lr", [(0, args.lr), (args.n_epochs * len(train_loader), 0.0)])
     trainer.add_event_handler(Events.ITERATION_STARTED, scheduler)
@@ -175,12 +177,11 @@ def train():
     for name, metric in metrics.items():
         metric.attach(evaluator, name)
 
-    # On the main process: add progress bar, tensorboard, checkpoints and save model, configuration and tokenizer before we start to train
+    # On the main process: add progress bar, tensorboard, checkpoints
+    # And save model, configuration and tokenizer before we start to train
     if args.local_rank in [-1, 0]:
         pbar = ProgressBar(persist=True, mininterval=2)
         pbar.attach(trainer, metric_names=["loss", "lr"])
-        # pbar_val = ProgressBar(persist=True)
-        # pbar_val.attach(evaluator)
         evaluator.add_event_handler(Events.COMPLETED,
                                     lambda _: pbar.log_message("Validation: %s" % pformat(evaluator.state.metrics)))
 
@@ -205,7 +206,8 @@ def train():
     # Run the training
     trainer.run(train_loader, max_epochs=args.n_epochs)
 
-    # On the main process: close tensorboard logger and rename the last checkpoint (for easy re-loading with OpenAIGPTModel.from_pretrained method)
+    # On the main process: close tensorboard logger and rename the last checkpoint
+    # (for easy re-loading with OpenAIGPTModel.from_pretrained method)
     if args.local_rank in [-1, 0] and args.n_epochs > 0:
         os.rename(checkpoint_handler._saved[-1][1][-1],
                   os.path.join(tb_logger.writer.logdir,

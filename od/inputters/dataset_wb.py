@@ -129,10 +129,9 @@ class DatasetBase(Dataset):
 
 class WBdistributeDataset(DatasetBase):
 
-    def __init__(self, args, tokenizer, is_train=False, *inputs, **kwargs):
+    def __init__(self, args, tokenizer, *inputs, **kwargs):
         super(WBdistributeDataset, self).__init__(*inputs, **kwargs)
         self.args = args
-        self.data = list()
         self.tokenizer = tokenizer
 
     # def __len__(self):
@@ -180,16 +179,10 @@ class WBdistributeDataset(DatasetBase):
             instance["lm_labels"] = ([-1] * sum(len(s) for s in sequence[:-1])) + [-1] + sequence[-1][1:]
         return instance, sequence
 
-
-class WBCollate(object):
-
-    def __init__(self, dataset):
-        self.padding = dataset.tokenizer.pad()
-
-    def __call__(self, batch):
+    def collate(self, batch):
         tensor_batch = []
         # TODO
-        dataset = self.pad_dataset(batch, padding=self.padding)
+        dataset = self.pad_dataset(batch, padding=self.tokenizer.pad())
         for input_name in MODEL_INPUTS:
             tensor = torch.tensor(dataset[input_name])
             tensor = tensor.view((-1,) + tensor.shape[1:])
@@ -218,5 +211,4 @@ class WBCollate(object):
 
         return {"input_ids": input_ids,
                 "token_type_ids": token_type_ids,
-                "lm_labels": lm_labels
-                }
+                "lm_labels": lm_labels}

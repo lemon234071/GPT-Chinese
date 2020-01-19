@@ -1,15 +1,47 @@
 # -*- coding: utf-8 -*-
+import os
+import json
 from itertools import chain
 from collections import defaultdict
 
 import torch
 from torch.utils.data import DataLoader
+from transformers import cached_path
 
-from od.utils.logging import logger
-from od.utils.data_utils import get_data
 from od.inputters.dataset_wb import WBDataset
+from od.utils.logging import logger
 
+SMALCleanWB_URL = ""
 SPECIAL_TOKENS = ["<Lua heritage>", "<eos>", "madeupword0000", "madeupword0001"]
+
+
+def get_data(tokenizer, dataset_path, dataset_cache):
+    """ Get tokenized dataset from COTK or cache."""
+    dataset_path = dataset_path or SMALCleanWB_URL
+    dataset_cache = dataset_cache + '_' + type(tokenizer).__name__
+    if dataset_cache and os.path.isfile(dataset_cache):
+        logger.info("Load tokenized dataset from cache at %s", dataset_cache)
+        dataset = torch.load(dataset_cache)
+        samples = None
+    else:
+        logger.info("Download dataset from %s", dataset_path)
+        cache_file = cached_path(dataset_path)
+        with open(cache_file, "r", encoding="utf-8") as f:
+            dataset = json.loads(f.read())
+            samples = [{k: v[:5]} for k, v in dataset.items()]
+
+        logger.info("Tokenize and encode the dataset")
+
+        def tokenize(obj):
+            if isinstance(obj, str):
+                return tokenizer.convert_tokens_to_ids(tokenizer.tokenize(obj))
+            if isinstance(obj, dict):
+                return dict((n, tokenize(o)) for n, o in obj.items())
+            return list(tokenize(o) for o in obj)
+
+        dataset = tokenize(dataset)
+        torch.save(dataset, dataset_cache)
+    return dataset, samples
 
 
 def build_dataloaders(args, tokenizer):
@@ -43,7 +75,7 @@ def data_process(args, data, tokenizer, with_eos=True, lm_labels=True):
     datasets = defaultdict(list)
     for dataset_name, dataset in data.items():
         for dialog in dataset:
-            history = dialog[-args.max_history:-1]
+            history = dialog[-2*args.max_history:-1]
             resposne = dialog[-1]
             """ """
             sequence = [[bos]] + history + [resposne + ([eos] if with_eos else [])]

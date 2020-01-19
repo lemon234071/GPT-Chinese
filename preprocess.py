@@ -12,7 +12,7 @@ random.seed(2019)
 def de_generic(path, outpath, n):
     data = load_json(path)
     test = load_json(path.replace("CleanWB.json", "CleanWB_test.json"))
-    data["test"] = test
+    data["test"] = test["test"]
 
     def ngrams(resp, n):
         ngram = []
@@ -22,6 +22,7 @@ def de_generic(path, outpath, n):
         return ngram
     if os.path.exists("./temp/tri_grams.json"):
         generic = load_json("./temp/tri_grams.json")
+        print("load from ./temp/tri_grams.json")
     else:
         dataset = data["train"] + data["valid"]
         print("len raw: ", len(dataset))
@@ -50,12 +51,12 @@ def de_generic(path, outpath, n):
             flag = False
             cnt = collections.Counter(tri_grams)
             for word, num in cnt.items():
-                if tri_grams.count(num)/len(tri_grams) > 0.9:
+                if 1 > tri_grams.count(num)/len(tri_grams) > 0.9:
                     if word in generic:
                         dirty_cnt.append(resp)
                         flag = True
                         # break
-                if num/len(tri_grams) > 0.9:
+                if 1 > num/len(tri_grams) > 0.9:
                     if word in generic:
                         dirty_gram.append(resp)
                         flag = True
@@ -63,7 +64,7 @@ def de_generic(path, outpath, n):
             if flag:
                 continue
             new_dataset.append(dialog)
-        print("len new: ", len(new_dataset))
+        print("len new: ",k , len(new_dataset))
         new_data[k] = new_dataset
     save_json(dirty_cnt, "./temp/cnt.json")
     save_json(dirty_gram, "./temp/gram.json")

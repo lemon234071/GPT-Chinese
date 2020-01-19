@@ -91,7 +91,7 @@ def pro_CWB_json(indir, outdir, maxlen):
             continue
         max_len = max(max_len, sum([len(x) for x in new_dialog]) + 2 + len(new_dialog))
         new_single.append(new_dialog)
-
+    print(max_len, "single max len")
     for dialog in multi_data:
         new_dialog = []
         for seq in dialog:
@@ -108,6 +108,7 @@ def pro_CWB_json(indir, outdir, maxlen):
     gc.collect()
     print(len(new_multi) + len(new_single))
 
+    max_len = 0
     split_muli = []
     for dialog in tqdm(new_multi):
         for i in range(2, len(dialog) + 1):
@@ -120,9 +121,10 @@ def pro_CWB_json(indir, outdir, maxlen):
                 new_dialog = new_dialog[1:]
             max_len = max(max_len, sum([len(x) for x in new_dialog]) + 2 + len(new_dialog))
             split_muli.append(new_dialog)
-
+    print(max_len, "mul max len")
     print("drop", n_drop)
-    new_multi = split_muli
+    new_multi = [[" ".join(seq) for seq in dialog] for dialog in split_muli]
+    new_single = [[" ".join(seq) for seq in dialog] for dialog in new_single]
     random.shuffle(new_multi)
     random.shuffle(new_single)
     print(new_single[0])
@@ -368,8 +370,8 @@ def clean_data(indir, outdir):
 
 def main():
     # clean_data("/home/wangyida/211/v3/data/CleanWB/", "/home/wangyida/211/v3/data/CleanWB/")
-    # pro_CWB_json("/home/wangyida/data/CleanWB/", "./data/", 320)
-    de_generic("/home/wangyida/data/CleanWB/", "./data/new.json")
+    pro_CWB_json("/home/wangyida/data/CleanWB/", "./data/", 320)
+    de_generic("./data/train_valid.json", "./data/CleanWB.json")
     print("over")
 
 

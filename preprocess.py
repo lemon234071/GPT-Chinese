@@ -36,15 +36,13 @@ def de_generic(path, outpath, n):
         gc.collect()
         generic = sorted(generic.items(), key=lambda x: x[1], reverse=True)
         save_json(generic, "./temp/tri_grams.json")
-    import pdb
-    pdb.set_trace()
     screen = [(x, cnt) for x, cnt in generic if cnt > n]
     # print(screen)
     generic = set([x for x, cnt in screen])
     dirty_cnt = []
     dirty_gram = []
     new_data = {}
-    for k, v in data:
+    for k, v in data.items():
         new_dataset = []
         for dialog in tqdm(v, mininterval=1):
             resp = dialog[-1].replace(" ", "")

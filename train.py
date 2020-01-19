@@ -15,7 +15,7 @@ from ignite.handlers import ModelCheckpoint
 from ignite.metrics import Loss, MetricsLambda, RunningAverage
 from ignite.contrib.handlers import ProgressBar, PiecewiseLinear, LRScheduler
 from ignite.contrib.handlers.tensorboard_logger import TensorboardLogger, OutputHandler, OptimizerParamsHandler
-from pytorch_transformers import (OpenAIGPTLMHeadModel, OpenAIGPTConfig, GPT2LMHeadModel, GPT2Config,
+from transformers import (OpenAIGPTLMHeadModel, OpenAIGPTConfig, GPT2LMHeadModel, GPT2Config,
                                   WEIGHTS_NAME, CONFIG_NAME, AdamW, BertTokenizer)
 
 from od.inputters.inputter import build_dataloaders
@@ -38,7 +38,7 @@ def train():
     parser.add_argument('--pretrained', action='store_true', help="If False train from scratch")
     parser.add_argument("--data_path", type=str, default="",
                         help="Path or url of the dataset. If empty download from COTK")
-    parser.add_argument("--dataset_cache", type=str, default="./data/dataset_cache",
+    parser.add_argument("--dataset_cache", type=str, default="data/dataset_cache",
                         help="Path or url of the dataset cache")
     parser.add_argument('--log_file', '-log_file', type=str, default="", help="Output logs to a file under this path")
     parser.add_argument("--num_workers", type=int, default=8, help="Number of subprocesses for data loading")
@@ -82,14 +82,10 @@ def train():
     config_class = OpenAIGPTConfig if "gpt2" not in args.model_checkpoint else GPT2Config
     tokenizer_class = BertTokenizer
     if args.pretrained:
-        tokenizer = tokenizer_class.from_pretrained(args.model_checkpoint, do_lower_case=True,
-                                                    unk_token="<unk>", sep_token="</s>",
-                                                    pad_token="<pad>", cls_token="<Lua heritage>")
+        tokenizer = tokenizer_class.from_pretrained(args.model_checkpoint, do_lower_case=True)
         model = model_class.from_pretrained(args.model_checkpoint)
     else:
-        tokenizer = tokenizer_class(os.path.join(args.model_checkpoint, "vocab.txt"), do_lower_case=True,
-                                    unk_token="<unk>", sep_token="</s>",
-                                    pad_token="<pad>", cls_token="<Lua heritage>")
+        tokenizer = tokenizer_class(os.path.join(args.model_checkpoint, "vocab.txt"), do_lower_case=True)
         config = config_class.from_json_file(os.path.join(args.model_checkpoint, CONFIG_NAME))
         model = model_class(config)
     model.to(args.device)
@@ -194,6 +190,7 @@ def train():
                          event_name=Events.EPOCH_COMPLETED)
 
         checkpoint_handler = ModelCheckpoint(tb_logger.writer.logdir, 'checkpoint', save_interval=1, n_saved=3)
+        # save model after evaluation
         evaluator.add_event_handler(Events.EPOCH_COMPLETED, checkpoint_handler, {
             'mymodel': getattr(model, 'module', model)})
         trainer.add_event_handler(Events.EPOCH_COMPLETED, checkpoint_handler, {

@@ -1,7 +1,9 @@
-from od.utils.data_utils import *
+import os
 import random
 from tqdm import tqdm
 import gc
+
+from od.utils.data_utils import *
 
 random.seed(2019)
 

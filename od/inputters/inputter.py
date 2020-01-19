@@ -12,7 +12,7 @@ from od.inputters.dataset_wb import WBDataset
 from od.utils.logging import logger
 
 SMALCleanWB_URL = ""
-SPECIAL_TOKENS = ["<Lua heritage>", "<eos>", "madeupword0000", "madeupword0001"]
+SPECIAL_TOKENS = ["[CLS]", "[SEP]", "[speaker1]", "[speaker2]"]
 
 
 def get_data(tokenizer, dataset_path, dataset_cache):

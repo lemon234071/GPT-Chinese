@@ -13084,5 +13084,5 @@ Z
 螿
 膡
 駸
-[speaker1]
-[speaker2]
+[SPEAKER1]
+[SPEAKER2]

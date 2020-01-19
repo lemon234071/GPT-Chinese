@@ -14,8 +14,10 @@ MODEL_INPUTS = ["input_ids", "lm_labels", "token_type_ids"]
 
 class WBDataset(Dataset):
 
-    def __init__(self, data, tokenizer, batch_first=True):
+    def __init__(self, data, tokenizer, max_history=15, batch_first=True):
         self.data = data
+        self.tokenizer = tokenizer
+        self.max_history = max_history
         self.pad = tokenizer.pad_token_id
         self.batch_first = batch_first
 
@@ -23,7 +25,27 @@ class WBDataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, index):
-        return self.data[index]
+        return self.process(self.data[index])
+
+    def process(self, dialog, lm_labels=True, with_eos=True):
+        bos, eos, speaker1, speaker2 = self.tokenizer.convert_tokens_to_ids(SPECIAL_TOKENS)
+
+        history = dialog[-2 * self.max_history:-1]
+        resposne = dialog[-1]
+        """ """
+        sequence = [[bos]] + history + [resposne + ([eos] if with_eos else [])]
+        sequence = [sequence[0]] + [[speaker2 if i % 2 else speaker1] + s
+                                    for i, s in enumerate(sequence[1:])]
+        instance = {}
+        instance["input_ids"] = list(chain(*sequence))
+        instance["token_type_ids"] = [bos] + [speaker2 if i % 2 else speaker1 for i, s in
+                                              enumerate(sequence[1:])
+                                              for _ in s]
+        instance["lm_labels"] = [-1] * len(instance["input_ids"])
+        if lm_labels:
+            instance["lm_labels"] = ([-1] * sum(len(s) for s in sequence[:-1])) + [-1] + sequence[-1][1:]
+
+        return instance
 
     def collate(self, batch):
         input_ids = pad_sequence(

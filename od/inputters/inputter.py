@@ -12,7 +12,7 @@ from od.inputters.dataset_wb import WBDataset
 from od.utils.logging import logger
 
 SMALCleanWB_URL = ""
-SPECIAL_TOKENS = ["[CLS]", "[SEP]", "[speaker1]", "[speaker2]"]
+SPECIAL_TOKENS = ["[CLS]", "[SEP]", "[SPEAKER1]", "[SPEAKER]"]
 
 
 def get_data(tokenizer, dataset_path, dataset_cache):
@@ -45,10 +45,10 @@ def get_data(tokenizer, dataset_path, dataset_cache):
 
 
 def build_dataloaders(args, tokenizer):
-    data, raw_samples = get_data(tokenizer, args.data_path, args.dataset_cache)
+    datasets, raw_samples = get_data(tokenizer, args.data_path, args.dataset_cache)
 
-    logger.info("Build inputs and labels")
-    datasets = data_process(args, data, tokenizer)
+    # logger.info("Build inputs and labels")
+    # datasets = data_process(args, datasets, tokenizer)
 
     logger.info("Build train and validation dataloaders")
     train_dataset, valid_dataset = WBDataset(datasets["train"], tokenizer), WBDataset(datasets["valid"], tokenizer)

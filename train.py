@@ -16,7 +16,7 @@ from ignite.metrics import Loss, MetricsLambda, RunningAverage
 from ignite.contrib.handlers import ProgressBar, PiecewiseLinear, LRScheduler
 from ignite.contrib.handlers.tensorboard_logger import TensorboardLogger, OutputHandler, OptimizerParamsHandler
 from transformers import (OpenAIGPTLMHeadModel, OpenAIGPTConfig, GPT2LMHeadModel, GPT2Config,
-                                  WEIGHTS_NAME, CONFIG_NAME, AdamW, BertTokenizer)
+                          WEIGHTS_NAME, CONFIG_NAME, AdamW, BertTokenizer)
 
 from od.inputters.inputter import build_dataloaders
 from od.utils.logging import logger, init_logger
@@ -62,7 +62,7 @@ def train():
                         help="Local rank for distributed training (-1: not distributed)")
     args = parser.parse_args()
 
-    init_logger(args.log_file)
+    # init_logger(args.log_file)
 
     # logging is set to INFO (resp. WARN) for main (resp. auxiliary) process.
     # logger.info => log main process only, logger.warning => log all processes

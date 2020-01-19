@@ -51,7 +51,7 @@ def de_generic(path, outpath, n):
             flag = False
             cnt = collections.Counter(tri_grams)
             for word, num in cnt.items():
-                if 1 > tri_grams.count(num)/len(tri_grams) > 0.9:
+                if 1 > tri_grams.count(num)/len(resp) > 0.9:
                     if word in generic:
                         dirty_cnt.append(resp)
                         flag = True

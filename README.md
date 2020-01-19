@@ -13,7 +13,7 @@ Install from the sources:
 Model details  
 
 | Models      | Layers  | Description | 
-| :---------: | :-----: | :-------: | 
+|-------------|---------|----------------------|
 | [GPT-C]()   |   12    |    Trained on 1.3B novel data from scratch    |
 | [GPT-CD]()  |   12    |    Fine tuned on 6.8M CleanWB data from C-GPT     | 
 | [GPT2-CD]() |   12    |    Fine tuned on 6.8M CleanWB data from C-GPT    | 
@@ -81,7 +81,6 @@ Fine-tuned on
 ## Case study
 
 ## Author
-Yida
 
 ## Acknowledgements
 ## Disclaimer

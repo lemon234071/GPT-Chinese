@@ -9,8 +9,10 @@ from od.utils.data_utils import *
 random.seed(2019)
 
 
-def de_generic(path, outpath):
+def de_generic(path, outpath, n):
     data = load_json(path)
+    test = load_json(path.replace("CleanWB.json", "CleanWB_test.json"))
+    data["test"] = test
 
     def ngrams(resp, n):
         ngram = []
@@ -25,8 +27,8 @@ def de_generic(path, outpath):
         print("len raw: ", len(dataset))
         generic = collections.Counter()
         # assert isinstance(dataset[0][0], str)
-        for dialog in dataset:
-            for seq in tqdm(dialog, mininterval=1):
+        for dialog in tqdm(dataset, mininterval=1):
+            for seq in dialog:
                 seq = seq.replace(" ", "")
                 tri_grams = ngrams(seq, 3)
                 generic.update(list(set(tri_grams)))
@@ -36,7 +38,7 @@ def de_generic(path, outpath):
         save_json(generic, "./temp/tri_grams.json")
     import pdb
     pdb.set_trace()
-    screen = [(x, cnt) for x, cnt in generic if cnt > 1000]
+    screen = [(x, cnt) for x, cnt in generic if cnt > n]
     # print(screen)
     generic = set([x for x, cnt in screen])
     dirty_cnt = []
@@ -67,11 +69,13 @@ def de_generic(path, outpath):
         new_data[k] = new_dataset
     save_json(dirty_cnt, "./temp/cnt.json")
     save_json(dirty_gram, "./temp/gram.json")
-    # while len(new_data["test"]) < 10000:
-    #     new_data["test"].append(new_data["train"].pop(-1))
+    while len(new_data["test"]) < 10000:
+        new_data["test"].append(new_data["train"].pop(-1))
     while len(new_data["valid"]) < 20000:
         new_data["valid"].append(new_data["train"].pop(-1))
+    test = new_data.pop("test")
     save_json(new_data, outpath)
+    save_json(test, outpath.replace("new", "new_test"))
     print("over")
 
 
@@ -378,7 +382,8 @@ def clean_data(indir, outdir):
 
 def main():
     # clean_data("/home/wangyida/211/v3/data/CleanWB/", "/home/wangyida/211/v3/data/CleanWB/")
-    pro_CWB_json("/home/wangyida/data/CleanWB/", "./data/", 320)
+    # pro_CWB_json("/home/wangyida/data/CleanWB/", "./data/", 320)
+    de_generic("./data/CleanWB.json", "./data/CleanWB_new.json", 1000)
     print("over")
 
 

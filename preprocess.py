@@ -11,30 +11,34 @@ random.seed(2019)
 
 def de_generic(path, outpath):
     data = load_json(path)
-    dataset = data["train"] + data["valid"]
+
     def ngrams(resp, n):
         ngram = []
         if len(resp) >= n:
             for i in range(len(resp) - n + 1):
-                ngram.append(' '.join(resp[i: i + n]))
+                ngram.append(''.join(resp[i: i + n]))
         return ngram
-
-    print("len raw: ", len(dataset))
-    generic = collections.Counter()
-    # assert isinstance(dataset[0][0], str)
-    for dialog in dataset:
-        for seq in dialog:
-            seq = seq.replace(" ", "")
-            tri_grams = ngrams(seq, 3)
-            generic.update(list(set(tri_grams)))
-    generic = sorted(generic.items(), key=lambda x: x[1], reverse=True)
-    save_json(generic, "./temp/tri_grams.json")
+    if os.path.exists("./temp/tri_grams.json"):
+        generic = load_json("./temp/tri_grams.json")
+    else:
+        dataset = data["train"] + data["valid"]
+        print("len raw: ", len(dataset))
+        generic = collections.Counter()
+        # assert isinstance(dataset[0][0], str)
+        for dialog in dataset:
+            for seq in tqdm(dialog, mininterval=1):
+                seq = seq.replace(" ", "")
+                tri_grams = ngrams(seq, 3)
+                generic.update(list(set(tri_grams)))
+        del dataset
+        gc.collect()
+        generic = sorted(generic.items(), key=lambda x: x[1], reverse=True)
+        save_json(generic, "./temp/tri_grams.json")
     import pdb
     pdb.set_trace()
     screen = [(x, cnt) for x, cnt in generic if cnt > 1000]
     # print(screen)
-    n = int(input())
-    generic = set([x for x, cnt in generic[:n]])
+    generic = set([x for x, cnt in screen])
     dirty_cnt = []
     dirty_gram = []
     new_data = {}
@@ -63,6 +67,10 @@ def de_generic(path, outpath):
         new_data[k] = new_dataset
     save_json(dirty_cnt, "./temp/cnt.json")
     save_json(dirty_gram, "./temp/gram.json")
+    # while len(new_data["test"]) < 10000:
+    #     new_data["test"].append(new_data["train"].pop(-1))
+    while len(new_data["valid"]) < 20000:
+        new_data["valid"].append(new_data["train"].pop(-1))
     save_json(new_data, outpath)
     print("over")
 
@@ -371,7 +379,6 @@ def clean_data(indir, outdir):
 def main():
     # clean_data("/home/wangyida/211/v3/data/CleanWB/", "/home/wangyida/211/v3/data/CleanWB/")
     pro_CWB_json("/home/wangyida/data/CleanWB/", "./data/", 320)
-    de_generic("./data/train_valid.json", "./data/CleanWB.json")
     print("over")
 
 

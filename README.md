@@ -1,5 +1,8 @@
 # GPT-Chinese  
-* 
+* This project provides a GPT model trained on 1.3G Chinese novel data, 
+and several GPT/GPT2 models trained on Chinese dialogs proposed in [Large-scale Cleaned Chinese Dataset for Open-domain Conversation Generation](). 
+The code is adapted from [TransferTransfo]() using [Transformers]() of HuggingFace, 
+which can be used for pre training and fine tuning.
 * 本项目提供一个在1.3G小说数据上训练的中文GPT模型以及代码，并提供 [Large-scale Cleaned Chinese Dataset for Open-domain Conversation
 Generation]()中的大规模对话预料GPT、GPT2模型。本项目代码使改自[TransferTransfo]()，使用HuggingFace Pytorch版的[Transformers](), 可用于预训练与微调。
 ## Installation  
@@ -12,12 +15,12 @@ Install from the sources:
 ## Pretrained model  
 Model details  
 
-| Models      | Layers  | Description | 
-|-------------|---------|----------------------|
-| [GPT-C]()   |   12    |    Trained on 1.3B novel data from scratch    |
-| [GPT-CD]()  |   12    |    Fine tuned on 6.8M CleanWB data from C-GPT     | 
-| [GPT2-CD]() |   12    |    Fine tuned on 6.8M CleanWB data from C-GPT    | 
-| [GPT2-CD]() |   24    |    Trained on the dataset below from scratch     | 
+| Models      | Layers | Description | 
+|-------------|--------|----------------------|
+| [GPT-C]()   |   12   |    Trained on 1.3B novel data from scratch    |
+| [GPT-CD]()  |   12   |    Fine tuned on 6.8M CleanWB data from C-GPT     | 
+| [GPT2-CD]() |   12   |    Fine tuned on 6.8M CleanWB data from C-GPT    | 
+| [GPT2-CD]() |   24   |    Trained on the dataset below from scratch     | 
 
 The largest dialog dataset is a combination of several dialog datasets:
 

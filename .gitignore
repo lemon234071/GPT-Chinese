@@ -5,3 +5,4 @@ dataset_cache*
 data/
 pretrain/
 runs/
+temp/

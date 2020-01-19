@@ -1,11 +1,70 @@
 import os
+import gc
 import random
 from tqdm import tqdm
-import gc
+import collections
 
 from od.utils.data_utils import *
 
 random.seed(2019)
+
+
+def de_generic(path, outpath):
+    data = load_json(path)
+    dataset = data["train"] + data["valid"]
+    def ngrams(resp, n):
+        ngram = []
+        if len(resp) >= n:
+            for i in range(len(resp) - n + 1):
+                ngram.append(' '.join(resp[i: i + n]))
+        return ngram
+
+    print("len raw: ", len(dataset))
+    generic = collections.Counter()
+    # assert isinstance(dataset[0][0], str)
+    for dialog in dataset:
+        for seq in dialog:
+            seq = seq.replace(" ", "")
+            tri_grams = ngrams(seq, 3)
+            generic.update(list(set(tri_grams)))
+    generic = sorted(generic.items(), key=lambda x: x[1], reverse=True)
+    save_json(generic, "./temp/tri_grams.json")
+    import pdb
+    pdb.set_trace()
+    screen = [(x, cnt) for x, cnt in generic if cnt > 1000]
+    # print(screen)
+    n = int(input())
+    generic = set([x for x, cnt in generic[:n]])
+    dirty_cnt = []
+    dirty_gram = []
+    new_data = {}
+    for k, v in data:
+        new_dataset = []
+        for dialog in tqdm(v, mininterval=1):
+            resp = dialog[-1].replace(" ", "")
+            tri_grams = ngrams(resp, 3)
+            flag = False
+            cnt = collections.Counter(tri_grams)
+            for word, num in cnt.items():
+                if tri_grams.count(num)/len(tri_grams) > 0.9:
+                    if word in generic:
+                        dirty_cnt.append(resp)
+                        flag = True
+                        # break
+                if num/len(tri_grams) > 0.9:
+                    if word in generic:
+                        dirty_gram.append(resp)
+                        flag = True
+                        break
+            if flag:
+                continue
+            new_dataset.append(dialog)
+        print("len new: ", len(new_dataset))
+        new_data[k] = new_dataset
+    save_json(dirty_cnt, "./temp/cnt.json")
+    save_json(dirty_gram, "./temp/gram.json")
+    save_json(new_data, outpath)
+    print("over")
 
 
 def pro_CWB_json(indir, outdir, maxlen):
@@ -81,8 +140,8 @@ def pro_CWB_json(indir, outdir, maxlen):
     random.shuffle(valid)
     random.shuffle(test)
     print(outdir + "data.json")
-    save_json({"train": train, "valid": valid}, os.path.join(outdir, "train_valid.json"))
-    save_json({"test": test}, os.path.join(outdir, "test.json"))
+    save_json({"train": train, "valid": valid}, os.path.join(outdir, "CleanWB.json"))
+    save_json({"test": test}, os.path.join(outdir, "CleanWB_test.json"))
     print("pro_CWB over")
 
 
@@ -308,8 +367,9 @@ def clean_data(indir, outdir):
 
 
 def main():
-    clean_data("/home/wangyida/211/v3/data/CleanWB/", "/home/wangyida/211/v3/data/CleanWB/")
-    pro_CWB_json("/home/wangyida/211/v3/data/CleanWB/bert_dirty/", "./data/", 320)
+    # clean_data("/home/wangyida/211/v3/data/CleanWB/", "/home/wangyida/211/v3/data/CleanWB/")
+    # pro_CWB_json("/home/wangyida/data/CleanWB/", "./data/", 320)
+    de_generic("/home/wangyida/data/CleanWB/", "./data/new.json")
     print("over")
 
 

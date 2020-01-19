@@ -51,23 +51,23 @@ def de_generic(path, outpath, n):
             flag = False
             cnt = collections.Counter(tri_grams)
             for word, num in cnt.items():
-                if 1 > tri_grams.count(num)/len(resp) > 0.9:
+                if 1 > tri_grams.count(num)*3/len(resp) > 0.9:
                     if word in generic:
                         dirty_cnt.append(resp)
                         flag = True
-                        # break
-                if 1 > num/len(tri_grams) > 0.9:
-                    if word in generic:
-                        dirty_gram.append(resp)
-                        flag = True
                         break
+                # if 1 > num/len(tri_grams) > 0.9:
+                #     if word in generic:
+                #         dirty_gram.append(resp)
+                #         flag = True
+                #         break
             if flag:
                 continue
             new_dataset.append(dialog)
         print("len new: ",k , len(new_dataset))
         new_data[k] = new_dataset
     save_json(dirty_cnt, "./temp/cnt.json")
-    save_json(dirty_gram, "./temp/gram.json")
+    # save_json(dirty_gram, "./temp/gram.json")
     while len(new_data["test"]) < 10000:
         new_data["test"].append(new_data["train"].pop(-1))
     while len(new_data["valid"]) < 20000:

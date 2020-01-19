@@ -1,7 +1,7 @@
 # GPT-Chinese  
 * 
-* 本项目提供一个在1.3G小说数据上训练的中文GPT模型以及代码，并提供 [Large-scale Cleaned Chinese Dataset for Open-domain Conversation]()
-Generation中的大规模对话预料GPT、GPT2模型。本项目代码使改自[TransferTransfo]()，使用HuggingFace Pytorch版的[Transformers](), 可用于预训练与微调。
+* 本项目提供一个在1.3G小说数据上训练的中文GPT模型以及代码，并提供 [Large-scale Cleaned Chinese Dataset for Open-domain Conversation
+Generation]()中的大规模对话预料GPT、GPT2模型。本项目代码使改自[TransferTransfo]()，使用HuggingFace Pytorch版的[Transformers](), 可用于预训练与微调。
 ## Installation  
 Install from the sources:  
 
@@ -9,7 +9,7 @@ Install from the sources:
     cd Chinese-GPT
     pip install -r requirements.txt 
     
-##Pretrained model  
+## Pretrained model  
 Model details  
 
 | Models      | Layers  | Description | 
@@ -23,13 +23,13 @@ The largest dialog dataset is a combination of several dialog datasets:
 
 | Dataset     | Source  | Scale  | Description | 
 | :---------: | :-----: | :-----: | :-------: | 
-| [CleanWB]() |    -    |  6.8M    |        |
-| [C-DGPT]()  |    -    |      |         | 
-| [C-DGPT2]() |    -    |      |        | 
-| [C-DGPT2]() |    -    |      |         |
+| CleanWB |    -    |  6.8M    |        |
+| -  |    -    |      |         | 
+| - |    -    |      |        | 
+| - |    -    |      |         |
 
 
-##Fine-tune quickstart
+## Fine-tune quickstart
 Step 1: Prepare the fine-tuned data
 
     
@@ -59,7 +59,7 @@ Interact Arguments
 | C-DGPT2 | from C-GPT   |   12    |    6.8M CleanWB data     | 
 | C-DGPT2 | from scratch |   24    |    -     | 
 
-##Evaluation  
+## Evaluation  
 Zero-shot  
 
 | Models  |   PPL   |    BLEU   | 
@@ -78,11 +78,11 @@ Fine-tuned on
 | C-DGPT2 |   12    |    no     | 
 | C-DGPT2 |   24    |    no     | 
 
-##Case study
+## Case study
 
-##Author
+## Author
 Yida
 
-##Acknowledgements
-##Disclaimer
-##Citation
+## Acknowledgements
+## Disclaimer
+## Citation

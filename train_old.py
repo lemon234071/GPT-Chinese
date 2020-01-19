@@ -18,7 +18,7 @@ from ignite.contrib.handlers.tensorboard_logger import TensorboardLogger, Output
 from pytorch_pretrained_bert import (OpenAIAdam, OpenAIGPTConfig, OpenAIGPTLMHeadModel, WEIGHTS_NAME, CONFIG_NAME)
 
 from od.inputters.tokenization_wb import WBTokenizer
-from od.inputters.dataset_wb import WBdistributeDataset, WBCollate
+from od.inputters.dataset_wb import WBdistributeDataset
 
 logger = logging.getLogger(__file__)
 
@@ -40,14 +40,14 @@ def get_data_loaders(args, tokenizer):
     train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset) if args.distributed else None
     valid_sampler = torch.utils.data.distributed.DistributedSampler(valid_dataset) if args.distributed else None
     train_loader = DataLoader(train_dataset,
-                              collate_fn=WBCollate(train_dataset),
+                              collate_fn=train_dataset.collate,
                               pin_memory=(args.device == "cuda"),
                               num_workers=args.num_workers,
                               sampler=train_sampler,
                               batch_size=args.train_batch_size,
                               shuffle=(not args.distributed))
     valid_loader = DataLoader(valid_dataset,
-                              collate_fn=WBCollate(valid_dataset),
+                              collate_fn=valid_dataset.collate,
                               pin_memory=(args.device == "cuda"),
                               num_workers=args.num_workers,
                               sampler=valid_sampler,

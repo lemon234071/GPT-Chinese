@@ -155,8 +155,8 @@ def train():
         evaluator.add_event_handler(Events.EPOCH_STARTED, lambda engine: valid_sampler.set_epoch(engine.state.epoch))
 
     # noam decrease the learning rate
-    model_size = model.config.n_embd
-    # model_size = 768
+    # model_size = model.config.n_embd
+    model_size = 768
     noam_lambda = lambda step: (
             model_size ** (-0.5) * min((step + 1) ** (-0.5), (step + 1) * args.warmup_steps ** (-1.5)))
     noam_scheduler = LambdaLR(optimizer, lr_lambda=noam_lambda, last_epoch=args.from_step)

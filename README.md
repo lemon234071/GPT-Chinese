@@ -17,7 +17,7 @@ Model details
 
 | Models      | Layers | Description | 
 |-------------|--------|----------------------|
-| [GPT-C]()   |   12   |    Trained on 1.3B novel data from scratch    |
+| [GPT-C]()   |   12   |    Trained on 1.3G novel data from scratch    |
 | [GPT-CD]()  |   12   |    Fine tuned on 6.8M CleanWB data from C-GPT     | 
 | [GPT2-CD]() |   12   |    Fine tuned on 6.8M CleanWB data from C-GPT    | 
 | [GPT2-CD]() |   24   |    Trained on the dataset below from scratch     | 
@@ -49,7 +49,7 @@ Training Arguments
 
 | Arguments  | Type     | Default value  | Description | 
 | :-----: | :----------: | :-----: | :-------: | 
-| C-GPT   | from scratch |   12    |    1.3B novel data     |
+| C-GPT   | from scratch |   12    |    1.3G novel data     |
 | C-DGPT  | from C-GPT   |   12    |    6.8M CleanWB data     | 
 | C-DGPT2 | from C-GPT   |   12    |    6.8M CleanWB data     | 
 | C-DGPT2 | from scratch |   24    |    -     | 
@@ -57,7 +57,7 @@ Interact Arguments
 
 | Arguments  | Type     | Default value  | Description | 
 | :-----: | :----------: | :-----: | :-------: | 
-| C-GPT   | from scratch |   12    |    1.3B novel data     |
+| C-GPT   | from scratch |   12    |    1.3G novel data     |
 | C-DGPT  | from C-GPT   |   12    |    6.8M CleanWB data     | 
 | C-DGPT2 | from C-GPT   |   12    |    6.8M CleanWB data     | 
 | C-DGPT2 | from scratch |   24    |    -     | 

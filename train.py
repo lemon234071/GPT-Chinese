@@ -3,11 +3,13 @@
 import os
 import math
 import logging
+import random
 from pprint import pformat
 from argparse import ArgumentParser
 
+import numpy as np
 import torch
-from torch.nn.parallel import DistributedDataParallel
+from torch.nn.parallel import DataParallel
 from torch.optim.lr_scheduler import LambdaLR
 
 from ignite.engine import Engine, Events
@@ -23,6 +25,17 @@ from od.inputters.inputter import build_dataloaders
 logger = logging.getLogger(__file__)
 
 
+def setup_seed(seed):
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+    torch.backends.cudnn.deterministic = True
+
+
+setup_seed(2019)
+
+
 def average_distributed_scalar(scalar, args):
     """ Average a scalar over the nodes if we are in distributed training. We use this for distributed evaluation. """
     if args.local_rank == -1:
@@ -34,6 +47,7 @@ def average_distributed_scalar(scalar, args):
 
 def train():
     parser = ArgumentParser()
+    parser.add_argument('--gpt2', action='store_true', help="use gpt2")
     parser.add_argument("--model_checkpoint", type=str, default="https://", help="Path or URL of the model")
     parser.add_argument("--from_step", type=int, default=-1, help="Init learning rate from this step")
     parser.add_argument('--pretrained', action='store_true', help="If False train from scratch")
@@ -63,7 +77,6 @@ def train():
                         help="Local rank for distributed training (-1: not distributed)")
     args = parser.parse_args()
 
-
     # logging is set to INFO (resp. WARN) for main (resp. auxiliary) process.
     # logger.info => log main process only, logger.warning => log all processes
     logging.basicConfig(level=logging.INFO if args.local_rank in [-1, 0] else logging.WARN)
@@ -78,8 +91,8 @@ def train():
         torch.distributed.init_process_group(backend='nccl', init_method='env://')
 
     logger.info("Prepare tokenizer, pretrained model and optimizer - add special tokens for fine-tuning")
-    model_class = OpenAIGPTLMHeadModel if "gpt2" not in args.model_checkpoint else GPT2LMHeadModel
-    config_class = OpenAIGPTConfig if "gpt2" not in args.model_checkpoint else GPT2Config
+    model_class = OpenAIGPTLMHeadModel if not args.gpt2 else GPT2LMHeadModel
+    config_class = OpenAIGPTConfig if not args.gpt2 else GPT2Config
     tokenizer_class = BertTokenizer
     if args.pretrained:
         tokenizer = tokenizer_class.from_pretrained(args.model_checkpoint, do_lower_case=True)
@@ -100,7 +113,7 @@ def train():
         from apex import amp  # Apex is only required if we use fp16 training
         model, optimizer = amp.initialize(model, optimizer, opt_level=args.fp16)
     if args.distributed:
-        model = DistributedDataParallel(model, device_ids=[args.local_rank], output_device=args.local_rank)
+        model = DataParallel(model, device_ids=[args.local_rank], output_device=args.local_rank)
 
     # Training function and trainer
     def update(engine, batch):

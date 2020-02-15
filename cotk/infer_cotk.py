@@ -3,23 +3,22 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 import os
-import math
 import logging
 import random
 from argparse import ArgumentParser
 from pprint import pformat
 from itertools import chain
-from tqdm import tqdm
+import math
 
 import torch
 import torch.nn.functional as F
 
-from transformers import OpenAIGPTLMHeadModel, GPT2LMHeadModel, BertTokenizer
+from pytorch_pretrained_bert import OpenAIGPTLMHeadModel, GPT2LMHeadModel
+from od.WB_tokenization import WBTokenizer, VOCAB_FILE
+from cotk.dataloader import GPTSingleTurnDialog
 
-from od.inputters.inputter import test_loader
 
-SPECIAL_TOKENS = ["[CLS]", "[SEP]", "[PAD]", "[speaker1]", "[speaker2]"]
-
+SPECIAL_TOKENS = ["[CLS]", "[SEP]", "[PAD]"]
 
 def top_filtering(logits, top_k=0, top_p=0.0, threshold=-float('Inf'), filter_value=-float('Inf')):
     """ Filter a distribution of logits using top-k, top-p (nucleus) and/or threshold filtering
@@ -78,15 +77,18 @@ def build_input_from_segments(history, reply, tokenizer, lm_labels=False, with_e
     return instance, sequence
 
 
-def sample_sequence(instance, tokenizer, model, args, current_output=None):
+def sample_sequence(batch, tokenizer, model, args, current_output=None):
     special_tokens_ids = tokenizer.convert_tokens_to_ids(SPECIAL_TOKENS)
     if current_output is None:
         current_output = []
 
     for i in range(args.max_length):
-        input_ids, token_type_ids, lm_labels = tuple(input_tensor.to(args.device) for input_tensor in instance)
+        inputs = [batch["input_gpt"], batch["label_gpt"]]
+        input_ids, lm_labels = tuple(torch.LongTensor(x).to(args.device) for x in inputs)
+        logits = model(input_ids)
 
-        logits, *_ = model(input_ids, token_type_ids=token_type_ids)
+        if "gpt2" == args.model:
+            logits = logits[0]
         logits = logits[0, -1, :] / args.temperature
         logits = top_filtering(logits, top_k=args.top_k, top_p=args.top_p)
         probs = F.softmax(logits, dim=-1)
@@ -103,12 +105,48 @@ def sample_sequence(instance, tokenizer, model, args, current_output=None):
     return current_output
 
 
+def get_cotk_data_loaders(args):
+    data_class = GPTSingleTurnDialog.load_class(args.dataset)
+    data = data_class(args.datapath,
+                      bert_vocab_name=args.vocab_path,
+                      min_vocab_times=args.min_vocab_times,
+                      max_sent_length=args.max_sent_length)
+
+    class cotk_loader(torch.utils.data.Dataset):
+        def __init__(self, data, datakey, batch_size=1):
+            self.data = data
+            self.datakey = datakey
+            self.shuffle = True if datakey == "train" else False
+            self.batch_size = batch_size
+            self.tokenizer = data.tokenizer
+
+        def __len__(self):
+            return math.ceil(self.data.data_size[self.datakey] / self.data.batch_size[self.datakey])
+
+        def __getitem__(self, index):
+            return self.data.get_batch(self.datakey, [index])
+
+        def __iter__(self):
+            for batch in self.data.get_batches(self.datakey, batch_size=self.batch_size, shuffle=self.shuffle):
+                yield batch
+
+    test_iter = cotk_loader(data, "test", 1)
+    return test_iter
+
+
 def main():
     parser = ArgumentParser()
-    parser.add_argument('--gpt2', action='store_true', help="use gpt2")
-    parser.add_argument("--dataset", type=str, default="STC", help="Dataset.")
-    parser.add_argument("--datapath", type=str, default="./data/", help="Path of the dataset.")
+    parser.add_argument("--dataset", type=str, default="GPTOpenSubtitles", help="Dataset.")
+    parser.add_argument("--datapath", type=str, default="./data/",
+                        help="Path of the dataset.")  # resources://OpenSubtitles
+    parser.add_argument("--vocab_path", type=str, default="./pretrain/Cgpt/vocab.txt", help="Path of the vocab.")
+    parser.add_argument("--min_vocab_times", type=int, default=0, help="")
+    parser.add_argument("--max_sent_length", type=int, default=256, help="")
+    parser.add_argument("--warmup_steps", type=int, default=5000, help="")
+    parser.add_argument("--valid_steps", type=int, default=125, help="")
     parser.add_argument("--out_path", type=str, default="", help="Path of response generated.")
+
+    parser.add_argument("--model", type=str, default="gpt", help="Model type (gpt or gpt2)")
     parser.add_argument("--model_checkpoint", type=str, default="", help="Path, url or short name of the model")
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu",
                         help="Device (cuda or cpu)")
@@ -136,25 +174,26 @@ def main():
     torch.cuda.manual_seed(args.seed)
 
     logger.info("Get pretrained model and tokenizer")
-    tokenizer_class = BertTokenizer
-    model_class = OpenAIGPTLMHeadModel if not args.gpt2 else GPT2LMHeadModel
-    tokenizer = tokenizer_class.from_pretrained(args.model_checkpoint, do_lower_case=True)
+    # tokenizer = WBTokenizer(os.path.join(args.model_checkpoint, VOCAB_FILE))
+    model_class = GPT2LMHeadModel if "gpt2" == args.model else OpenAIGPTLMHeadModel
     model = model_class.from_pretrained(args.model_checkpoint)
 
     model.to(args.device)
     model.eval()
 
-    data_loader = test_loader(args, tokenizer)
+    test_loader = get_cotk_data_loaders(args)
+    tokenizer = test_loader.tokenizer
 
-    predictions = []
-    for instance in tqdm(data_loader, mininterval=1):
+    out = []
+    from tqdm import tqdm
+    for batch in tqdm(test_loader, mininterval=2):
         with torch.no_grad():
-            out_ids = sample_sequence(instance, tokenizer, model, args)
+            out_ids = sample_sequence(batch, tokenizer, model, args)
         out_text = tokenizer.decode(out_ids, skip_special_tokens=True)
-        predictions.append(out_text)
+        out.append(out_text)
 
     with open(args.out_path, 'w', encoding="UTF-8") as f:
-        f.write("\n".join(predictions))
+        f.write("\n".join(out))
 
 
 if __name__ == "__main__":

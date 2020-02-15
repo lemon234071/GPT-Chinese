@@ -69,13 +69,34 @@ def build_dataloaders(args, tokenizer):
     return train_loader, valid_loader, train_sampler, valid_sampler
 
 
+def test_loader(args, tokenizer):
+    with open(args.datapath, "r", encoding="utf-8") as f:
+        dataset = json.loads(f.read())
+
+    def tokenize(obj):
+        if isinstance(obj, str):
+            return tokenizer.convert_tokens_to_ids(tokenizer.tokenize(obj))
+        if isinstance(obj, dict):
+            return dict((n, tokenize(o)) for n, o in obj.items())
+        return list(tokenize(o) for o in obj)
+
+    dataset = tokenize(dataset)
+    logger.info("Build test dataloader")
+    test_dataset = WBDataset(dataset, tokenizer, lm_labels=False)
+    return DataLoader(test_dataset,
+                      collate_fn=test_dataset.collate,
+                      num_workers=1,
+                      batch_size=1,
+                      shuffle=False)
+
+
 def data_process(args, data, tokenizer, with_eos=True, lm_labels=True):
     bos, eos, speaker1, speaker2 = tokenizer.convert_tokens_to_ids(SPECIAL_TOKENS)
 
     datasets = defaultdict(list)
     for dataset_name, dataset in data.items():
         for dialog in dataset:
-            history = dialog[-2*args.max_history:-1]
+            history = dialog[-2 * args.max_history:-1]
             resposne = dialog[-1]
             """ """
             sequence = [[bos]] + history + [resposne + ([eos] if with_eos else [])]

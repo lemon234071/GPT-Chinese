@@ -68,7 +68,7 @@ def de_generic(path, tri_path, outpath, n):
     print("over")
 
 
-def pro_CWB_json(path, outpath, maxlen, train_split=True):
+def pro_CWB_json(path, outpath, maxlen, train_split=True, multi=True):
     data = load_json(path)
     single_data = [dialog for dialog in data if len(dialog) < 3]
     multi_data = [dialog for dialog in data if len(dialog) > 2]
@@ -96,52 +96,60 @@ def pro_CWB_json(path, outpath, maxlen, train_split=True):
         max_len = max(max_len, sum([len(x) for x in new_dialog]) + 2 + len(new_dialog))
         new_single.append(new_dialog)
     print(max_len, "single max len")
-    for dialog in multi_data:
-        new_dialog = []
-        for seq in dialog:
-            new_seq = []
-            for token in list(seq):
-                char = token.strip()
-                if char:
-                    new_seq.append(char)
-            assert len(new_seq) > 0
-            new_dialog.append(new_seq)
-        new_multi.append(new_dialog)
+    if multi:
+        for dialog in multi_data:
+            new_dialog = []
+            for seq in dialog:
+                new_seq = []
+                for token in list(seq):
+                    char = token.strip()
+                    if char:
+                        new_seq.append(char)
+                assert len(new_seq) > 0
+                new_dialog.append(new_seq)
+            new_multi.append(new_dialog)
 
     del single_data, multi_data
     gc.collect()
     print(len(new_multi) + len(new_single))
 
-    max_len = 0
-    split_muli = []
-    for dialog in tqdm(new_multi):
-        for i in range(2, len(dialog) + 1):
-            new_dialog = dialog[:i]
-            if sum([len(x) for x in new_dialog[-2:]]) + 2 + 2 > maxlen:
-                n_drop += 1
-                print(new_dialog[-2:])
-                continue
-            while sum([len(x) for x in new_dialog]) + 2 + len(new_dialog) > maxlen:
-                new_dialog = new_dialog[1:]
-            max_len = max(max_len, sum([len(x) for x in new_dialog]) + 2 + len(new_dialog))
-            split_muli.append(new_dialog)
-    print(max_len, "mul max len")
-    print("drop", n_drop)
-    new_multi = [[" ".join(seq) for seq in dialog] for dialog in split_muli]
+    if multi:
+        max_len = 0
+        split_muli = []
+        for dialog in tqdm(new_multi):
+            for i in range(2, len(dialog) + 1):
+                new_dialog = dialog[:i]
+                if sum([len(x) for x in new_dialog[-2:]]) + 2 + 2 > maxlen:
+                    n_drop += 1
+                    print(new_dialog[-2:])
+                    continue
+                while sum([len(x) for x in new_dialog]) + 2 + len(new_dialog) > maxlen:
+                    new_dialog = new_dialog[1:]
+                max_len = max(max_len, sum([len(x) for x in new_dialog]) + 2 + len(new_dialog))
+                split_muli.append(new_dialog)
+        print(max_len, "mul max len")
+        print("drop", n_drop)
+        new_multi = [[" ".join(seq) for seq in dialog] for dialog in split_muli]
+        random.shuffle(new_multi)
+        print(new_multi[0])
     new_single = [[" ".join(seq) for seq in dialog] for dialog in new_single]
-    random.shuffle(new_multi)
+
     random.shuffle(new_single)
     print(new_single[0])
-    print(new_multi[0])
     print(len(new_single) + len(new_multi))
     if not train_split:
         data_out = {"train": new_single + new_multi}
         random.shuffle(data_out["train"])
         save_json(data_out, outpath)
     else:
-        valid = new_single[-10000:-3000] + new_multi[-20000:-7000]
-        test = new_single[-3000:] + new_multi[-7000:]
-        train = new_single[:-10000] + new_multi[:-20000]
+        if multi:
+            valid = new_single[-10000:-3000] + new_multi[-20000:-7000]
+            test = new_single[-3000:] + new_multi[-7000:]
+            train = new_single[:-10000] + new_multi[:-20000]
+        else:
+            valid = new_single[-30000: -10000]
+            test = new_single[-10000:]
+            train = new_single[:-30000]
 
         print(len(train))
         print(len(valid))
@@ -377,10 +385,10 @@ def clean_data(path, vocab_path, safe_path, outpath, dirty_dir):
     save_json(new_multi + new_single, outpath)
 
 
-def de_valid_test():
-    test = load_json("./data/CleanWB_test.json")
-    data = load_json("./data/LCCD.json")
-    valid = load_json("./data/CleanWB.json")["valid"]
+def de_valid_test(test_path, path, valid_path):
+    test = load_json(test_path)
+    data = load_json(path)
+    valid = load_json(valid_path)["valid"]
 
     train = ["\t".join(dialog) for dialog in data["train"]]
     del data
@@ -409,7 +417,10 @@ def main():
     #            "/home/wangyida/data/LCCD/toools_data/tri_grams.json",
     #            "./data/LLCD_degeneric.json", 1000)
     # pro_CWB_json("./data/LCCD.json", "./data/LCCD.json", 320, train_split=False)
-    de_valid_test()
+    # de_valid_test()
+
+    pro_CWB_json("/home/wangyida/data/LCCD/stc/single_cls.json", "./data/STC.json", 320, train_split=True, multi=False)
+    de_valid_test("./data/STC_test.json", "./data/STC.json", "./data/STC.json")
     print("over")
 
 

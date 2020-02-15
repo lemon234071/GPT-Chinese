@@ -14,24 +14,29 @@ MODEL_INPUTS = ["input_ids", "lm_labels", "token_type_ids"]
 
 class WBDataset(Dataset):
 
-    def __init__(self, data, tokenizer, max_history=15, batch_first=True):
+    def __init__(self, data, tokenizer, max_history=15, batch_first=True, lm_labels=True):
         self.data = data
         self.tokenizer = tokenizer
         self.max_history = max_history
         self.pad = tokenizer.pad_token_id
         self.batch_first = batch_first
+        self.lm_labels = lm_labels
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, index):
-        return self.process(self.data[index])
+        if self.lm_labels:
+            history = self.data[index][-2 * self.max_history:-1]
+            resposne = self.data[index][-1]
+        else:
+            history = self.data[index][-2 * self.max_history:]
+            resposne = []
+        return self.process(history, resposne)
 
-    def process(self, dialog, lm_labels=True, with_eos=True):
+    def process(self, history, resposne, with_eos=True):
         bos, eos, speaker1, speaker2 = self.tokenizer.convert_tokens_to_ids(SPECIAL_TOKENS)
 
-        history = dialog[-2 * self.max_history:-1]
-        resposne = dialog[-1]
         """ """
         sequence = [[bos]] + history + [resposne + ([eos] if with_eos else [])]
         sequence = [sequence[0]] + [[speaker2 if i % 2 else speaker1] + s
@@ -42,7 +47,7 @@ class WBDataset(Dataset):
                                               enumerate(sequence[1:])
                                               for _ in s]
         instance["lm_labels"] = [-1] * len(instance["input_ids"])
-        if lm_labels:
+        if self.lm_labels:
             instance["lm_labels"] = ([-1] * sum(len(s) for s in sequence[:-1])) + [-1] + sequence[-1][1:]
 
         return instance

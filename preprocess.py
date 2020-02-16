@@ -407,6 +407,14 @@ def de_valid_test(test_path, path, valid_path):
     save_json(new_data, "./data/LCCD.json")
 
 
+def json2txt(path, outdir, name):
+    data = load_json(path)
+    train = [" \t ".join(x) for x in data["train"]]
+    valid = [" \t ".join(x) for x in data["valid"]]
+    save_txt("\n".join(train), outdir+name+"_train.txt")
+    save_txt("\n".join(valid), outdir+name+"_valid.txt")
+
+
 def main():
     # clean_data("/home/wangyida/git/temp/CleanWB/data/after_cls.json",
     #            "/home/wangyida/data/LCCD/tools_data/wangyi_vocab.txt",

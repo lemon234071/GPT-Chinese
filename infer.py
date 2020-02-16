@@ -4,6 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 import os
 import math
+import json
 import logging
 import random
 from argparse import ArgumentParser
@@ -15,8 +16,6 @@ import torch
 import torch.nn.functional as F
 
 from transformers import OpenAIGPTLMHeadModel, GPT2LMHeadModel, BertTokenizer
-
-from od.inputters.inputter import test_loader
 
 SPECIAL_TOKENS = ["[CLS]", "[SEP]", "[PAD]", "[speaker1]", "[speaker2]"]
 
@@ -60,31 +59,35 @@ def top_filtering(logits, top_k=0, top_p=0.0, threshold=-float('Inf'), filter_va
     return logits
 
 
-def build_input_from_segments(history, reply, tokenizer, lm_labels=False, with_eos=True):
+def build_input_from_segments(history, reply, tokenizer, with_eos=True):
     """ Build a sequence of input from 3 segments: persona, history and last reply """
-    bos, eos, speaker1, speaker2 = tokenizer.convert_tokens_to_ids(SPECIAL_TOKENS[:-1])
-
-    instance = {}
+    bos, eos, pad, speaker1, speaker2 = tokenizer.convert_tokens_to_ids(SPECIAL_TOKENS)
     sequence = [[bos]] + history + [reply + ([eos] if with_eos else [])]
-    sequence = [sequence[0]] + [[speaker2 if (len(sequence) - i) % 2 else speaker1] + s for i, s in
-                                enumerate(sequence[1:])]
-
+    sequence = [sequence[0]] + [[speaker2 if i % 2 else speaker1] + s for i, s in enumerate(sequence[1:])]
+    instance = {}
     instance["input_ids"] = list(chain(*sequence))
-    instance["token_type_ids"] = [speaker2 if i % 2 else speaker1 for i, s in enumerate(sequence) for _ in s]
-    instance["mc_token_ids"] = len(instance["input_ids"]) - 1
-    instance["lm_labels"] = [-1] * len(instance["input_ids"])
-    if lm_labels:
-        instance["lm_labels"] = ([-1] * sum(len(s) for s in sequence[:-1])) + [-1] + sequence[-1][1:]
+    instance["token_type_ids"] = [bos] + [speaker2 if i % 2 else speaker1 for i, s in enumerate(sequence[1:])
+                                          for _ in s]
     return instance, sequence
 
 
-def sample_sequence(instance, tokenizer, model, args, current_output=None):
+def test_loader(args):
+    with open(args.datapath, "r", encoding="utf-8") as f:
+        dataset = json.loads(f.read())
+    if isinstance(dataset, dict):
+        dataset = dataset["test"]
+    return dataset
+
+
+def sample_sequence(history, tokenizer, model, args, current_output=None):
     special_tokens_ids = tokenizer.convert_tokens_to_ids(SPECIAL_TOKENS)
     if current_output is None:
         current_output = []
 
     for i in range(args.max_length):
-        input_ids, token_type_ids, lm_labels = tuple(input_tensor.to(args.device) for input_tensor in instance)
+        instance, sequence = build_input_from_segments(history, current_output, tokenizer, with_eos=False)
+        input_ids = torch.tensor(instance["input_ids"], dtype=torch.long, device=args.device).unsqueeze(0)
+        token_type_ids = torch.tensor(instance["token_type_ids"], dtype=torch.long, device=args.device).unsqueeze(0)
 
         logits, *_ = model(input_ids, token_type_ids=token_type_ids)
         logits = logits[0, -1, :] / args.temperature
@@ -144,12 +147,20 @@ def main():
     model.to(args.device)
     model.eval()
 
-    data_loader = test_loader(args, tokenizer)
+    def tokenize(obj):
+        if isinstance(obj, str):
+            return tokenizer.convert_tokens_to_ids(tokenizer.tokenize(obj))
+        if isinstance(obj, dict):
+            return dict((n, tokenize(o)) for n, o in obj.items())
+        return list(tokenize(o) for o in obj)
+
+    data_loader = test_loader(args)
 
     predictions = []
     for instance in tqdm(data_loader, mininterval=1):
+        history = tokenize(instance[:-1])
         with torch.no_grad():
-            out_ids = sample_sequence(instance, tokenizer, model, args)
+            out_ids = sample_sequence(history, tokenizer, model, args)
         out_text = tokenizer.decode(out_ids, skip_special_tokens=True)
         predictions.append(out_text)
 

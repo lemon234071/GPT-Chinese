@@ -20,7 +20,7 @@ from ignite.contrib.handlers.tensorboard_logger import TensorboardLogger, Output
 from transformers import (OpenAIGPTLMHeadModel, OpenAIGPTConfig, GPT2LMHeadModel, GPT2Config,
                           WEIGHTS_NAME, CONFIG_NAME, AdamW, BertTokenizer)
 
-from od.inputters.inputter import build_dataloaders
+from od.inputters.inputter import build_dataloaders, build_dist_loaders
 
 logger = logging.getLogger(__file__)
 
@@ -52,7 +52,11 @@ def train():
     parser.add_argument("--from_step", type=int, default=-1, help="Init learning rate from this step")
     parser.add_argument('--pretrained', action='store_true', help="If False train from scratch")
     parser.add_argument("--data_path", type=str, default="",
-                        help="Path or url of the dataset. If empty download from COTK")
+                        help="Path or url of the dataset. ")
+    parser.add_argument("--train_path", type=str, default="",
+                        help="Path of the train dataset for dist dataset. ")
+    parser.add_argument("--valid_path", type=str, default="",
+                        help="Path of the valid dataset for dist dataset. ")
     parser.add_argument("--dataset_cache", type=str, default="data/dataset_cache",
                         help="Path or url of the dataset cache")
     parser.add_argument('--log_file', '-log_file', type=str, default="", help="Output logs to a file under this path")
@@ -61,6 +65,7 @@ def train():
     parser.add_argument("--train_batch_size", type=int, default=2, help="Batch size for training")
     parser.add_argument("--valid_batch_size", type=int, default=2, help="Batch size for validation")
     parser.add_argument("--max_history", type=int, default=15, help="Number of previous exchanges to keep in history")
+    parser.add_argument("--scheduler", type=str, default="noam", help="method of optim")
     parser.add_argument("--lr", type=float, default=5e-5, help="Learning rate")
     parser.add_argument("--eval_before_start", action='store_true',
                         help="If true start with a first evaluation before training")
@@ -106,7 +111,8 @@ def train():
     optimizer = AdamW([{'params': model.parameters(), 'initial_lr': args.lr}], lr=args.lr, correct_bias=True)
 
     logger.info("Prepare datasets")
-    train_loader, val_loader, train_sampler, valid_sampler = build_dataloaders(args, tokenizer)
+    loader_class = build_dist_loaders if not args.data_path else build_dataloaders
+    train_loader, val_loader, train_sampler, valid_sampler = loader_class(args, tokenizer)
 
     # Prepare model for FP16 and distributed training if needed (order is important, distributed should be the last)
     if args.fp16:
@@ -174,7 +180,8 @@ def train():
             model_size ** (-0.5) * min((step + 1) ** (-0.5), (step + 1) * args.warmup_steps ** (-1.5)))
     noam_scheduler = LambdaLR(optimizer, lr_lambda=noam_lambda, last_epoch=args.from_step)
     scheduler = LRScheduler(noam_scheduler)
-    # scheduler = PiecewiseLinear(optimizer, "lr", [(0, args.lr), (args.n_epochs * len(train_loader), 0.0)])
+    if args.scheduler == "linear":
+        scheduler = PiecewiseLinear(optimizer, "lr", [(0, args.lr), (args.n_epochs * len(train_loader), 0.0)])
     trainer.add_event_handler(Events.ITERATION_STARTED, scheduler)
 
     # Prepare metrics - note how we compute distributed metrics

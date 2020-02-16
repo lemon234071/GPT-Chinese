@@ -70,7 +70,7 @@ def train():
     parser.add_argument("--eval_before_start", action='store_true',
                         help="If true start with a first evaluation before training")
     parser.add_argument("--warmup_steps", type=int, default=5000, help="Warm up steps")
-    parser.add_argument("--valid_steps", type=int, default=5000, help="Perfom validation every X steps")
+    parser.add_argument("--valid_steps", type=int, default=0, help="Perfom validation every X steps, if is not 0")
     parser.add_argument("--gradient_accumulation_steps", type=int, default=64,
                         help="Accumulate gradients on several steps")
     parser.add_argument("--max_norm", type=float, default=1.0, help="Clipping gradient norm")

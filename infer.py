@@ -71,7 +71,7 @@ def build_input_from_segments(history, reply, tokenizer, with_eos=True):
     return instance, sequence
 
 
-def test_loader(args):
+def test_data(args):
     with open(args.datapath, "r", encoding="utf-8") as f:
         dataset = json.loads(f.read())
     if isinstance(dataset, dict):
@@ -154,10 +154,10 @@ def main():
             return dict((n, tokenize(o)) for n, o in obj.items())
         return list(tokenize(o) for o in obj)
 
-    data_loader = test_loader(args)
+    dataset = test_data(args)
 
     predictions = []
-    for instance in tqdm(data_loader, mininterval=1):
+    for instance in tqdm(dataset, mininterval=1):
         history = tokenize(instance[:-1])
         with torch.no_grad():
             out_ids = sample_sequence(history, tokenizer, model, args)

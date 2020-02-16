@@ -117,7 +117,7 @@ class WBdistDataset(DatasetBase):
         tokenizer = self.tokenizer
         dialog = self._get_line(index)
         # dialog = line.strip().split("[SEP]")
-        dialog = dialog.split("\t")
+        dialog = dialog.strip().split("\t")
         def tokenize(obj):
             if isinstance(obj, str):
                 return tokenizer.convert_tokens_to_ids(tokenizer.tokenize(obj))

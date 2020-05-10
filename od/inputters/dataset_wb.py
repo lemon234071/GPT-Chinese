@@ -1,7 +1,6 @@
-#!/usr/bin/env python
-# coding:utf8
+# -*- coding: utf-8 -*-
+# Some functions come from the Internet, if you violate your rights, please contact us.
 import os
-from collections import defaultdict
 from itertools import chain
 
 import torch
@@ -37,7 +36,6 @@ class WBDataset(Dataset):
     def process(self, history, resposne, with_eos=True):
         bos, eos, speaker1, speaker2 = self.tokenizer.convert_tokens_to_ids(SPECIAL_TOKENS)
 
-        """ """
         sequence = [[bos]] + history + [resposne + ([eos] if with_eos else [])]
         sequence = [sequence[0]] + [[speaker2 if i % 2 else speaker1] + s
                                     for i, s in enumerate(sequence[1:])]
@@ -66,8 +64,6 @@ class WBDataset(Dataset):
 
 
 class DatasetBase(Dataset):
-    """The base class of different task dataset
-    """
 
     def __init__(self, data_path=None):
         self.data_path = data_path
@@ -110,14 +106,11 @@ class WBdistDataset(DatasetBase):
         self.batch_first = batch_first
         self.lm_labels = lm_labels
 
-    # def __len__(self):
-    #     return len(self.data)
-
     def __getitem__(self, index):
         tokenizer = self.tokenizer
         dialog = self._get_line(index)
-        # dialog = line.strip().split("[SEP]")
         dialog = dialog.strip().split("\t")
+
         def tokenize(obj):
             if isinstance(obj, str):
                 return tokenizer.convert_tokens_to_ids(tokenizer.tokenize(obj))
@@ -132,8 +125,6 @@ class WBdistDataset(DatasetBase):
 
     def process(self, history, resposne, with_eos=True):
         bos, eos, speaker1, speaker2 = self.tokenizer.convert_tokens_to_ids(SPECIAL_TOKENS)
-
-        """ """
         sequence = [[bos]] + history + [resposne + ([eos] if with_eos else [])]
         sequence = [sequence[0]] + [[speaker2 if i % 2 else speaker1] + s
                                     for i, s in enumerate(sequence[1:])]
@@ -159,38 +150,6 @@ class WBdistDataset(DatasetBase):
             [torch.tensor(instance["lm_labels"], dtype=torch.long) for instance in batch],
             batch_first=self.batch_first, padding_value=-1)
         return input_ids, token_type_ids, labels
-
-
-def truncate_seq_pair(max_seq_len, tokens_a, tokens_b):
-    """Truncate the sequence of pair, the last token will be removed
-    if it is longer than the other.
-    Args:
-        max_seq_len: max length of target sequence
-        tokens_a: first token sequence of the pair
-        tokens_b: second token sequence of the pair
-    """
-    while True:
-        total_length = len(tokens_a) + len(tokens_b)
-        if total_length <= max_seq_len - 2:  # for [CLS] and [SEP] tokens
-            break
-        if len(tokens_a) > len(tokens_b):
-            tokens_a.pop()
-        else:
-            tokens_b.pop()
-
-
-def find_first_sublist(main_list, sub_list):
-    """Find the start and end indexes of sublist in main list
-    Args:
-        main_list: the main list.
-        sub_list: the sublist.
-    Return:
-        the start and end indexes of sub_list in main_list
-    """
-    sub_len = len(sub_list)
-    for i, _ in enumerate(main_list):
-        if main_list[i: i + sub_len] == sub_list:
-            return (i, i + sub_len - 1)
 
 
 def prepare_files_offset(path, files_list, offset_list):

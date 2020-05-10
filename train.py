@@ -57,7 +57,7 @@ def train():
                         help="Path of the train dataset for dist dataset. ")
     parser.add_argument("--valid_path", type=str, default="",
                         help="Path of the valid dataset for dist dataset. ")
-    parser.add_argument("--dataset_cache", type=str, default="data/dataset_cache",
+    parser.add_argument("--dataset_cache", type=str, default="dataset_cache",
                         help="Path or url of the dataset cache")
     parser.add_argument('--log_file', '-log_file', type=str, default="", help="Output logs to a file under this path")
     parser.add_argument("--num_workers", type=int, default=8, help="Number of subprocesses for data loading")
@@ -65,7 +65,8 @@ def train():
     parser.add_argument("--train_batch_size", type=int, default=2, help="Batch size for training")
     parser.add_argument("--valid_batch_size", type=int, default=2, help="Batch size for validation")
     parser.add_argument("--max_history", type=int, default=15, help="Number of previous exchanges to keep in history")
-    parser.add_argument("--scheduler", type=str, default="noam", help="method of optim")
+    parser.add_argument("--scheduler", type=str, default="noam", choices=['noam', 'linear'], help="method of optim")
+    parser.add_argument("--n_emd", type=int, default=768, help="Number of n_emd in config file (for noam)")
     parser.add_argument("--lr", type=float, default=5e-5, help="Learning rate")
     parser.add_argument("--eval_before_start", action='store_true',
                         help="If true start with a first evaluation before training")
@@ -112,7 +113,7 @@ def train():
 
     logger.info("Prepare datasets")
     loader_class = build_dist_loaders if not args.data_path else build_dataloaders
-    train_loader, val_loader, train_sampler, valid_sampler = loader_class(args, tokenizer)
+    train_loader, val_loader, train_sampler, valid_sampler = loader_class(args, tokenizer, logger)
 
     # Prepare model for FP16 and distributed training if needed (order is important, distributed should be the last)
     if args.fp16:
@@ -175,7 +176,7 @@ def train():
 
     # noam decrease the learning rate
     # model_size = model.config.n_embd
-    model_size = 768
+    model_size = args.n_emd
     noam_lambda = lambda step: (
             model_size ** (-0.5) * min((step + 1) ** (-0.5), (step + 1) * args.warmup_steps ** (-1.5)))
     noam_scheduler = LambdaLR(optimizer, lr_lambda=noam_lambda, last_epoch=args.from_step)

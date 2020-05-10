@@ -2,8 +2,7 @@
 __pycache__
 .idea/
 dataset_cache*
-data/
-pretrain/
+models/
 runs/
 temp/
 result/

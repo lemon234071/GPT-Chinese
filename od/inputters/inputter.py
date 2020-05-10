@@ -1,23 +1,20 @@
 # -*- coding: utf-8 -*-
 import os
 import json
-from itertools import chain
-from collections import defaultdict
 
 import torch
 from torch.utils.data import DataLoader
 from transformers import cached_path
 
 from od.inputters.dataset_wb import WBDataset, WBdistDataset
-from od.utils.logging import logger
 
-SMALCleanWB_URL = ""
-SPECIAL_TOKENS = ["[CLS]", "[SEP]", "[SPEAKER1]", "[SPEAKER]"]
+LCCC_URL = "https://coai-dataset.oss-cn-beijing.aliyuncs.com/CleanWB.zip"
+SPECIAL_TOKENS = ["[CLS]", "[SEP]", "[speaker1]", "[speaker2]"]
 
 
-def get_data(tokenizer, dataset_path, dataset_cache):
+def get_data(tokenizer, dataset_path, dataset_cache, logger):
     """ Get tokenized dataset from COTK or cache."""
-    dataset_path = dataset_path or SMALCleanWB_URL
+    dataset_path = dataset_path or LCCC_URL
     dataset_cache = dataset_cache + '_' + type(tokenizer).__name__
     if dataset_cache and os.path.isfile(dataset_cache):
         logger.info("Load tokenized dataset from cache at %s", dataset_cache)
@@ -44,10 +41,10 @@ def get_data(tokenizer, dataset_path, dataset_cache):
     return dataset, samples
 
 
-def build_dataloaders(args, tokenizer):
+def build_dataloaders(args, tokenizer, logger):
     logger.info("Build train and validation dataloaders")
 
-    datasets, raw_samples = get_data(tokenizer, args.data_path, args.dataset_cache)
+    datasets, raw_samples = get_data(tokenizer, args.data_path, args.dataset_cache, logger)
     train_dataset, valid_dataset = WBDataset(datasets["train"], tokenizer), WBDataset(datasets["valid"], tokenizer)
     train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset) if args.distributed else None
     valid_sampler = torch.utils.data.distributed.DistributedSampler(valid_dataset) if args.distributed else None
@@ -66,8 +63,7 @@ def build_dataloaders(args, tokenizer):
     return train_loader, valid_loader, train_sampler, valid_sampler
 
 
-def build_dist_loaders(args, tokenizer):
-    """ Prepare the dataset for training and evaluation """
+def build_dist_loaders(args, tokenizer, logger):
     logger.info("Build train and validation dataloaders")
 
     train_dataset = WBdistDataset(tokenizer, data_path=args.train_path)

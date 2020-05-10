@@ -48,14 +48,14 @@ def average_distributed_scalar(scalar, args):
 def train():
     parser = ArgumentParser()
     parser.add_argument('--gpt2', action='store_true', help="use gpt2")
-    parser.add_argument("--model_checkpoint", type=str, default="https://", help="Path or URL of the model")
+    parser.add_argument("--model_checkpoint", type=str, default="config/cgpt/", help="Path or URL of the model")
     parser.add_argument("--from_step", type=int, default=-1, help="Init learning rate from this step")
     parser.add_argument('--pretrained', action='store_true', help="If False train from scratch")
     parser.add_argument("--data_path", type=str, default="",
                         help="Path or url of the dataset. ")
-    parser.add_argument("--train_path", type=str, default="",
+    parser.add_argument("--train_path", type=str, default="data/toy_train.txt",
                         help="Path of the train dataset for dist dataset. ")
-    parser.add_argument("--valid_path", type=str, default="",
+    parser.add_argument("--valid_path", type=str, default="data/toy_valid.txt",
                         help="Path of the valid dataset for dist dataset. ")
     parser.add_argument("--dataset_cache", type=str, default="dataset_cache",
                         help="Path or url of the dataset cache")
@@ -71,7 +71,7 @@ def train():
     parser.add_argument("--eval_before_start", action='store_true',
                         help="If true start with a first evaluation before training")
     parser.add_argument("--warmup_steps", type=int, default=5000, help="Warm up steps")
-    parser.add_argument("--valid_steps", type=int, default=0, help="Perfom validation every X steps, if is not 0")
+    parser.add_argument("--valid_steps", type=int, default=5000, help="Perfom validation every X steps")
     parser.add_argument("--gradient_accumulation_steps", type=int, default=64,
                         help="Accumulate gradients on several steps")
     parser.add_argument("--max_norm", type=float, default=1.0, help="Clipping gradient norm")

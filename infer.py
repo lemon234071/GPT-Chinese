@@ -109,8 +109,7 @@ def sample_sequence(history, tokenizer, model, args, current_output=None):
 def main():
     parser = ArgumentParser()
     parser.add_argument('--gpt2', action='store_true', help="use gpt2")
-    parser.add_argument("--dataset", type=str, default="STC", help="Dataset.")
-    parser.add_argument("--datapath", type=str, default="./data/", help="Path of the dataset.")
+    parser.add_argument("--datapath", type=str, default="", help="Path of the dataset.")
     parser.add_argument("--out_path", type=str, default="", help="Path of response generated.")
     parser.add_argument("--model_checkpoint", type=str, default="", help="Path, url or short name of the model")
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu",

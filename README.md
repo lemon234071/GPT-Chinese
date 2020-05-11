@@ -76,7 +76,7 @@ Install from the source codes:
 Step 1: Prepare the data and the pre-trianed model (train data or fine-tune data, E.g., [STC dataset](https://arxiv.org/abs/1503.02364)) 
     
     wget https://coai-dataset.oss-cn-beijing.aliyuncs.com/STC-corpus.zip # Download the STC dataset and unzip into "data_path" dir (fine-tuning on STC)
-    wget https://coai-dataset.oss-cn-beijing.aliyuncs.com/LCCD_GPT.zip # Download the GPT<sub>LCCC-large</sub> weights file and unzip into "model_checkpoint" dir
+    wget https://coai-dataset.oss-cn-beijing.aliyuncs.com/GPT_LCCC-large.zip # Download the GPT<sub>LCCC-large</sub> weights file and unzip into "model_checkpoint" dir
 Note: If the computer's memory is insufficient, you can process the file into txt format, use the "train_path"
  to load data in a distributed manner (the function we adapted from Internet), and you need to leave "data_path" empty. 
  You can also use the "toy_data.json" in our repository for test. 

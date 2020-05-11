@@ -52,7 +52,7 @@ The LCCC-base is constructed based on Weibo Corpus, which we crawled from [Weibo
 
 ## Pre-training
 ### Installation  
-Install from the source codes:z
+Install from the source codes:
 
     git clone https://github.com/lemon234071/GPT-Chinese.git
     cd GPT-Chinese

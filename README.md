@@ -56,7 +56,7 @@ We present a series of generative pre-training models for Chinese dialogue which
 
 Similar to [TransferTransfo](https://arxiv.org/abs/1901.08149), we concatenate all history utterances into one sequence as the context, and the goal of our model is to generate a response to each context. As shown below, the input of our model consists of word embedding, speaker embedding, and position embedding of each word.
 
-![Input representation](figures/inputs.pdf) 
+![Input representation](figures/inputs.png) 
 
 | Models        | Parameter Size | Pre-training Dataset   | Description                                       |
 |---------------| ------ |--------------------------|-------------------------------------------------- |

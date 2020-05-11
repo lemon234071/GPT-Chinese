@@ -147,6 +147,7 @@ def run():
         while not raw_text:
             print('Prompt should not be empty!')
             raw_text = input(">>> ")
+        raw_text = " ".join(list(raw_text.replace(" ", "")))
         history.append(tokenize(raw_text))
         with torch.no_grad():
             out_ids = sample_sequence(history, tokenizer, model, args)

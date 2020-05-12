@@ -7,8 +7,10 @@ The code is adapted from [TransferTransfo](https://github.com/huggingface/transf
 
 ## Contents
 * [Dataset](##Dataset)
-* [Pre-training](##Pre-training)
-* [Generation](##Generation)
+* <a href="#Pre-training">Pre-training</a>
+* [Evaluation](##Evaluation)
+
+
 
 ## Dataset
 In this project, we present a Large-scale Cleaned Chinese Conversation corpus (LCCC) consists of 
@@ -49,7 +51,7 @@ The LCCC-base is constructed based on Weibo Corpus, which we crawled from [Weibo
 | [E-commerical Conversation Corpus](https://github.com/cooelf/DeepUtteranceAggregation) | 0.5M | Q: 这个 会 不会 聚 划算 A: 暂时 没有 哦 Q: 后期 会 不会 有 A: 不 一定 哦 亲 多多 关注 我们 哦 |
 | [Chinese Chat Corpus](https://github.com/yangjianxin1/GPT2-chitchat) | 0.5M | Q: 我今天腿都废了，你们过节，我搬砖 A: 辛苦啊，圣诞节还去赚大钱了加油 Q: 毕竟是没男朋友的人，什么节都是一样的 |
 
-## Pre-training
+## <a name="#Pre-training">Pre-training</a>
 ### Models  
 We present a series of generative pre-training models for Chinese dialogue which are first pre-trained on the Chinese novel dataset and then post-trained on our LCCC dataset. The architecture is modified based on [TransferTransfo](https://arxiv.org/abs/1901.08149), but we removed the classification module.
 

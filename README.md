@@ -41,10 +41,10 @@ The LCCC-base is constructed based on Weibo Corpus, which we crawled from [Weibo
 | :---------------------------------- | :-------: | :---------------------------------- |
 | Weibo Corpus                      | 79M | Q:火锅我在重庆成都吃了七八顿火锅 A: 哈哈哈哈！那我的嘴巴 可能要烂掉！ |
 | [PTT Gossiping Corpus](https://github.com/zake7749/Gossiping-Chinese-Corpus) | 0.4M | Q:为什么乡民总是欺负国高中生呢QQ A:如果以为选好科系就会变成比尔盖兹那不如退学吧 |
-| [Subtitle Corpus](https://github.com/skdjfla/dgklostconv) | 2.74M | Q:京戏里头的人都是不自由的 A:他们让人拿笼子给套起来了了 |
-| [Xiaohuangji Corpus](https://github.com/skdjfla/dgklostconv) | 0.45M | Q:前排，鲁迷们都起床了吧 A:标题说助攻，但是看了那球，真是活生生的讽刺了 |
-| [Tieba Corpus](https://github.com/codemayq/chinesechatbotcorpus) | 2.32M | Q:前排，鲁迷们都起床了吧 A:标题说助攻，但是看了那球，真是活生生的讽刺了 |
-| [Qingyun Corpus](https://github.com/codemayq/chinesechatbotcorpus) | 0.1M | Q:看来你很爱钱 A:噢是吗？那么你也差不多了 |
+| [Subtitle Corpus](https://github.com/skdjfla/dgk_lost_conv) | 2.74M | Q:京戏里头的人都是不自由的 A:他们让人拿笼子给套起来了了 |
+| [Xiaohuangji Corpus](https://github.com/skdjfla/dgk_lost_conv) | 0.45M | Q:前排，鲁迷们都起床了吧 A:标题说助攻，但是看了那球，真是活生生的讽刺了 |
+| [Tieba Corpus](https://github.com/codemayq/chinese_chatbot_corpus) | 2.32M | Q:前排，鲁迷们都起床了吧 A:标题说助攻，但是看了那球，真是活生生的讽刺了 |
+| [Qingyun Corpus](https://github.com/codemayq/chinese_chatbot_corpus) | 0.1M | Q:看来你很爱钱 A:噢是吗？那么你也差不多了 |
 | [Douban Conversation Corpus](https://github.com/MarkWuNLP/MultiTurnResponseSelection) | 4M | Q: 看 原版 英文 电影 学 纯正 英语 A: 大 爱 老友 记 反复 看 了 好多 次 了 Q: 一样 光盘 都 快 被 我 看 花 了 A: 那 你 现在 的 英语 应该 不错 了 |
 | [E-commerical Conversation Corpus](https://github.com/cooelf/DeepUtteranceAggregation) | 0.5M | Q: 这个 会 不会 聚 划算 A: 暂时 没有 哦 Q: 后期 会 不会 有 A: 不 一定 哦 亲 多多 关注 我们 哦 |
 | [Chinese Chat Corpus](https://github.com/yangjianxin1/GPT2-chitchat) | 0.5M | Q: 我今天腿都废了，你们过节，我搬砖 A: 辛苦啊，圣诞节还去赚大钱了加油 Q: 毕竟是没男朋友的人，什么节都是一样的 |
